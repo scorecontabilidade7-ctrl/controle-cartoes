@@ -297,6 +297,69 @@ def get_resumo_anual():
         return JSONResponse(status_code=500, content={"sucesso": False, "erro": str(e)})
 
 
+@app.post("/atualizar-categoria")
+@app.post("/api/atualizar-categoria")
+def api_atualizar_categoria(payload: Dict[str, Any]):
+    fatura_id = payload.get("fatura_id")
+    estabelecimento = payload.get("estabelecimento")
+    nova_categoria = payload.get("nova_categoria")
+    item_index = payload.get("item_index")
+    aplicar_em_todos = payload.get("aplicar_em_todos", True)
+
+    if not nova_categoria:
+        return JSONResponse(status_code=400, content={"sucesso": False, "erro": "Nova categoria não informada"})
+
+    if not fatura_id:
+        return {"sucesso": True, "mensagem": "Atualizado apenas em memória"}
+
+    try:
+        fatura = obter_fatura_do_supabase(fatura_id)
+        if not fatura or not fatura.get("dados_completos"):
+            return JSONResponse(status_code=404, content={"sucesso": False, "erro": "Fatura não encontrada"})
+
+        dados_comp = fatura["dados_completos"]
+        proj = dados_comp.get("projecao") or {}
+
+        # 1. Atualiza detalhes_parcelas
+        if "detalhes_parcelas" in proj:
+            for idx, item in enumerate(proj["detalhes_parcelas"]):
+                if aplicar_em_todos and estabelecimento:
+                    if (item.get("estabelecimento") or "").upper().strip() == estabelecimento.upper().strip():
+                        item["categoria"] = nova_categoria
+                elif item_index is not None and idx == item_index:
+                    item["categoria"] = nova_categoria
+
+        # 2. Atualiza matriz_cartoes
+        if "matriz_cartoes" in proj:
+            for card in proj["matriz_cartoes"]:
+                for item in card.get("itens", []):
+                    if aplicar_em_todos and estabelecimento:
+                        if (item.get("estabelecimento") or "").upper().strip() == estabelecimento.upper().strip():
+                            item["categoria"] = nova_categoria
+                    elif item_index is not None and item.get("estabelecimento") == estabelecimento:
+                        item["categoria"] = nova_categoria
+
+        # 3. Salva no Supabase via PATCH
+        url = f"{SUPABASE_URL}/rest/v1/score_cartoes_faturas?id=eq.{fatura_id}"
+        headers = {
+            'apikey': SUPABASE_KEY,
+            'Authorization': f'Bearer {SUPABASE_KEY}',
+            'Content-Type': 'application/json',
+            'Prefer': 'return=representation'
+        }
+        update_body = {
+            'dados_completos': dados_comp,
+            'updated_at': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+        }
+        resp = requests.patch(url, json=update_body, headers=headers, timeout=15)
+        if not resp.ok:
+            return JSONResponse(status_code=resp.status_code, content={"sucesso": False, "erro": resp.text})
+
+        return {"sucesso": True, "mensagem": "Categoria atualizada com sucesso no banco de dados"}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"sucesso": False, "erro": str(e)})
+
+
 @app.post("/analisar-fatura-ia")
 @app.post("/api/analisar-fatura-ia")
 @app.post("/analisar-pdf")

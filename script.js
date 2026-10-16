@@ -43,6 +43,14 @@ function removerAcentos(str) {
     .trim();
 }
 
+function escapeJsString(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .replace(/"/g, '&quot;');
+}
+
 function sanitizarObjetoSemAcentos(obj) {
   if (typeof obj === 'string') {
     return removerAcentos(obj);
@@ -854,7 +862,7 @@ function renderizarResultados(dados) {
           <div class="child-indent">
             <span>•</span>
             <strong>${removerAcentos(item.estabelecimento)}</strong>
-            <span class="child-tag-cat">${removerAcentos(item.categoria)}</span>
+            <span class="child-tag-cat" onclick="abrirModalEditarCategoria('${escapeJsString(item.estabelecimento)}', '${escapeJsString(item.categoria)}')" title="Clique para editar a categoria contábil">${removerAcentos(item.categoria)} <span class="edit-cat-icon">✏️</span></span>
             <span style="font-size: 0.725rem; color: #60a5fa;">(${item.parcela_atual}/${item.parcela_total})</span>
           </div>
         </td>
@@ -930,7 +938,7 @@ function renderizarTabelaDetalhes(itens) {
       <td><strong>${removerAcentos(item.banco)}</strong></td>
       <td>${removerAcentos(item.cartao)}</td>
       <td><strong>${removerAcentos(item.estabelecimento)}</strong></td>
-      <td><span class="child-tag-cat">${removerAcentos(item.categoria)}</span></td>
+      <td><span class="child-tag-cat" onclick="abrirModalEditarCategoria('${escapeJsString(item.estabelecimento)}', '${escapeJsString(item.categoria)}')" title="Clique para editar a categoria contábil">${removerAcentos(item.categoria)} <span class="edit-cat-icon">✏️</span></span></td>
       <td>${item.data_compra || '-'}</td>
       <td>${item.parcela_atual}</td>
       <td>${item.parcela_total}</td>
@@ -1128,4 +1136,170 @@ function showToast(mensagem, tipo = 'info') {
     toast.style.transition = 'all 0.25s ease';
     setTimeout(() => toast.remove(), 250);
   }, 4000);
+}
+
+// ============================================================================
+// 11. EDIÇÃO DE CATEGORIAS CONTÁBEIS
+// ============================================================================
+let _contextoEdicaoCat = {
+  estabelecimento: '',
+  categoriaAtual: '',
+  novaCategoria: ''
+};
+
+function abrirModalEditarCategoria(estabelecimento, categoriaAtual) {
+  _contextoEdicaoCat = {
+    estabelecimento: estabelecimento || '',
+    categoriaAtual: categoriaAtual || '',
+    novaCategoria: categoriaAtual || ''
+  };
+
+  const modal = document.getElementById('modalEditarCategoria');
+  const nomeEl = document.getElementById('modalCatEstabelecimento');
+  const badgeEl = document.getElementById('modalCatAtualBadge');
+  const inputPers = document.getElementById('inputCategoriaPersonalizada');
+  const checkTodos = document.getElementById('checkAplicarMesmoEstabelecimento');
+
+  if (nomeEl) nomeEl.textContent = estabelecimento || 'Despesa';
+  if (badgeEl) badgeEl.textContent = categoriaAtual || 'Sem Categoria';
+  if (inputPers) inputPers.value = '';
+  if (checkTodos) checkTodos.checked = true;
+
+  destacarChipAtivo(categoriaAtual);
+
+  if (modal) modal.classList.add('active');
+}
+
+function fecharModalEditarCategoria() {
+  const modal = document.getElementById('modalEditarCategoria');
+  if (modal) modal.classList.remove('active');
+}
+
+function selecionarCategoriaChip(catNome) {
+  _contextoEdicaoCat.novaCategoria = catNome;
+  const inputPers = document.getElementById('inputCategoriaPersonalizada');
+  if (inputPers) inputPers.value = '';
+  destacarChipAtivo(catNome);
+}
+
+function aoDigitarCategoriaPersonalizada() {
+  const inputPers = document.getElementById('inputCategoriaPersonalizada');
+  if (inputPers && inputPers.value.trim()) {
+    _contextoEdicaoCat.novaCategoria = inputPers.value.trim();
+    destacarChipAtivo(null);
+  }
+}
+
+function destacarChipAtivo(catNome) {
+  const chips = document.querySelectorAll('#catChipsGrid .cat-chip-btn');
+  chips.forEach(btn => {
+    const onclickStr = btn.getAttribute('onclick') || '';
+    if (catNome && onclickStr.includes(`'${catNome}'`)) {
+      btn.classList.add('active');
+    } else {
+      btn.classList.remove('active');
+    }
+  });
+}
+
+async function confirmarEdicaoCategoria() {
+  const novaCat = _contextoEdicaoCat.novaCategoria ? _contextoEdicaoCat.novaCategoria.trim() : '';
+  const estab = _contextoEdicaoCat.estabelecimento;
+  const checkTodos = document.getElementById('checkAplicarMesmoEstabelecimento');
+  const aplicarTodos = checkTodos ? checkTodos.checked : true;
+
+  if (!novaCat) {
+    showToast('Por favor, selecione ou digite uma categoria.', 'error');
+    return;
+  }
+
+  // 1. Atualiza nos dados em memória da projeção atual
+  if (ESTADO.dadosAtuais) {
+    // Invalida cache de excel para que o próximo download use a categoria editada
+    ESTADO.dadosAtuais.excel_base64 = null;
+
+    if (ESTADO.dadosAtuais.projecao) {
+      const proj = ESTADO.dadosAtuais.projecao;
+
+      if (proj.detalhes_parcelas) {
+        proj.detalhes_parcelas.forEach(p => {
+          if (aplicarTodos) {
+            if ((p.estabelecimento || '').toUpperCase().trim() === (estab || '').toUpperCase().trim()) {
+              p.categoria = novaCat;
+            }
+          } else if (p.estabelecimento === estab) {
+            p.categoria = novaCat;
+          }
+        });
+      }
+
+      if (proj.matriz_cartoes) {
+        proj.matriz_cartoes.forEach(card => {
+          (card.itens || []).forEach(it => {
+            if (aplicarTodos) {
+              if ((it.estabelecimento || '').toUpperCase().trim() === (estab || '').toUpperCase().trim()) {
+                it.categoria = novaCat;
+              }
+            } else if (it.estabelecimento === estab) {
+              it.categoria = novaCat;
+            }
+          });
+        });
+      }
+
+      // Re-renderiza as tabelas para refletir a nova categoria na tela
+      renderizarMatrizProjecao(proj);
+    }
+
+    if (ESTADO.dadosAtuais.fatura) {
+      const fat = ESTADO.dadosAtuais.fatura;
+      const trans = fat.transacoes || fat.compras || [];
+      trans.forEach(t => {
+        if (aplicarTodos) {
+          if ((t.estabelecimento || '').toUpperCase().trim() === (estab || '').toUpperCase().trim()) {
+            t.categoria = novaCat;
+          }
+        } else if (t.estabelecimento === estab) {
+          t.categoria = novaCat;
+        }
+      });
+      (fat.cartoes || []).forEach(c => {
+        (c.compras || []).forEach(co => {
+          if (aplicarTodos) {
+            if ((co.estabelecimento || '').toUpperCase().trim() === (estab || '').toUpperCase().trim()) {
+              co.categoria = novaCat;
+            }
+          } else if (co.estabelecimento === estab) {
+            co.categoria = novaCat;
+          }
+        });
+      });
+    }
+  }
+
+  // 2. Se a fatura estiver salva no Supabase, sincroniza a alteração
+  const faturaId = ESTADO.faturaSelecionadaId || (ESTADO.dadosAtuais && ESTADO.dadosAtuais.id);
+  if (faturaId) {
+    try {
+      const resp = await fetch('/api/atualizar-categoria', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fatura_id: faturaId,
+          estabelecimento: estab,
+          nova_categoria: novaCat,
+          aplicar_em_todos: aplicarTodos
+        })
+      });
+      const resData = await resp.json();
+      if (!resp.ok || !resData.sucesso) {
+        console.warn('Aviso ao sincronizar categoria no Supabase:', resData.erro);
+      }
+    } catch (err) {
+      console.warn('Erro na requisição de atualização de categoria:', err);
+    }
+  }
+
+  fecharModalEditarCategoria();
+  showToast(`Categoria de "${estab}" alterada para "${novaCat}" com sucesso!`, 'success');
 }

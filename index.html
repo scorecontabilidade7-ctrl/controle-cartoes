@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   
-  <link rel="stylesheet" href="style.css?v=2.5">
+  <link rel="stylesheet" href="style.css?v=2.6">
   
   <!-- Estilos Críticos da Tela de Login (Garantia de renderização perfeita e imune a cache) -->
   <style id="auth-critical-styles">
@@ -658,9 +658,74 @@
     </div>
   </div>
 
+  <!-- Modal: Edição de Categoria Contábil -->
+  <div class="modal-backdrop" id="modalEditarCategoria">
+    <div class="modal-card modal-card-cat" style="max-width: 560px;">
+      <div class="modal-header">
+        <div class="modal-title-box">
+          <span class="modal-icon">🏷️</span>
+          <div>
+            <h3>Editar Categoria Contábil</h3>
+            <p>Ajuste a classificação financeira da despesa na fatura</p>
+          </div>
+        </div>
+        <button class="modal-close-btn" onclick="fecharModalEditarCategoria()">&times;</button>
+      </div>
+
+      <div class="modal-body form-body">
+        <div class="cat-target-info">
+          <div>
+            <span class="cat-target-label">Estabelecimento / Despesa:</span>
+            <div id="modalCatEstabelecimento" class="cat-target-name">CARREGANDO...</div>
+          </div>
+          <div style="text-align: right;">
+            <span class="cat-target-label">Categoria Atual:</span>
+            <div id="modalCatAtualBadge" class="cat-target-badge">-</div>
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-top: 1.25rem;">
+          <label>Categorias Rápidas Sugeridas (1 Toque):</label>
+          <div class="cat-chips-grid" id="catChipsGrid">
+            <button type="button" class="cat-chip-btn" onclick="selecionarCategoriaChip('Alimentacao')">🍽️ Alimentação</button>
+            <button type="button" class="cat-chip-btn" onclick="selecionarCategoriaChip('Transporte & Combustivel')">⛽ Transporte & Combustível</button>
+            <button type="button" class="cat-chip-btn" onclick="selecionarCategoriaChip('Tecnologia & Software')">💻 Tecnologia & Software</button>
+            <button type="button" class="cat-chip-btn" onclick="selecionarCategoriaChip('Servicos & Assinaturas')">📑 Serviços & Assinaturas</button>
+            <button type="button" class="cat-chip-btn" onclick="selecionarCategoriaChip('Operacional & PJ')">🏢 Operacional & PJ</button>
+            <button type="button" class="cat-chip-btn" onclick="selecionarCategoriaChip('Material de Escritorio')">📦 Material de Escritório</button>
+            <button type="button" class="cat-chip-btn" onclick="selecionarCategoriaChip('Viagens & Hospedagem')">✈️ Viagens & Hospedagem</button>
+            <button type="button" class="cat-chip-btn" onclick="selecionarCategoriaChip('Saude & Farmacia')">🩺 Saúde & Farmácia</button>
+            <button type="button" class="cat-chip-btn" onclick="selecionarCategoriaChip('Educacao & Cursos')">🎓 Educação & Cursos</button>
+            <button type="button" class="cat-chip-btn" onclick="selecionarCategoriaChip('Vestuario & Moda')">👕 Vestuário</button>
+            <button type="button" class="cat-chip-btn" onclick="selecionarCategoriaChip('Outros Lancamentos')">🏷️ Outros Lançamentos</button>
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-top: 1.25rem;">
+          <label for="inputCategoriaPersonalizada">Ou digite o nome da categoria:</label>
+          <input type="text" id="inputCategoriaPersonalizada" placeholder="Ex: Manutenção Predial, Marketing, Jurídico..." oninput="aoDigitarCategoriaPersonalizada()">
+        </div>
+
+        <div class="cat-checkbox-row" style="margin-top: 1rem;">
+          <label class="cat-checkbox-label">
+            <input type="checkbox" id="checkAplicarMesmoEstabelecimento" checked>
+            <span>Aplicar esta nova categoria para <strong>todas as compras deste mesmo estabelecimento</strong> nesta fatura</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="fecharModalEditarCategoria()">Cancelar</button>
+        <button type="button" class="btn btn-primary" onclick="confirmarEdicaoCategoria()">
+          <span>💾</span> Salvar Categoria
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast Container -->
   <div class="toast-container" id="toastContainer"></div>
 
-  <script src="script.js?v=2.5"></script>
+  <script src="script.js?v=2.6"></script>
 </body>
 </html>
