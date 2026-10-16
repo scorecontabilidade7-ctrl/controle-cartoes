@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   
-  <link rel="stylesheet" href="style.css?v=2.4">
+  <link rel="stylesheet" href="style.css?v=2.5">
   
   <!-- Estilos Críticos da Tela de Login (Garantia de renderização perfeita e imune a cache) -->
   <style id="auth-critical-styles">
@@ -210,6 +210,16 @@
     .auth-input-wrapper .btn-toggle-eye:hover {
       color: #f8fafc !important;
     }
+    /* Neutraliza o fundo azul-claro do preenchimento automatico do Chrome */
+    .auth-input-wrapper input:-webkit-autofill,
+    .auth-input-wrapper input:-webkit-autofill:hover, 
+    .auth-input-wrapper input:-webkit-autofill:focus, 
+    .auth-input-wrapper input:-webkit-autofill:active {
+      -webkit-box-shadow: 0 0 0 1000px #0b0f17 inset !important;
+      -webkit-text-fill-color: #f8fafc !important;
+      caret-color: #f8fafc !important;
+      transition: background-color 5000s ease-in-out 0s;
+    }
     .auth-forgot-row {
       display: flex !important;
       justify-content: flex-end !important;
@@ -376,12 +386,12 @@
         </div>
 
         <!-- Formulário de Autenticação -->
-        <form id="authForm" onsubmit="submeterAuth(event)" class="auth-form" style="margin-top: 1rem;">
+        <form id="authForm" onsubmit="submeterAuth(event)" class="auth-form" autocomplete="off" style="margin-top: 1rem;">
           <div class="form-group">
             <label for="authEmail">E-mail de Acesso:</label>
             <div class="auth-input-wrapper">
               <span class="auth-input-icon">✉️</span>
-              <input type="email" id="authEmail" placeholder="seu.email@scorecontabilidade.com.br" required autocomplete="email">
+              <input type="email" id="authEmail" placeholder="seu.email@scorecontabilidade.com.br" required autocomplete="off">
             </div>
           </div>
 
@@ -389,7 +399,7 @@
             <label for="authPassword">Senha:</label>
             <div class="auth-input-wrapper">
               <span class="auth-input-icon">🔒</span>
-              <input type="password" id="authPassword" placeholder="••••••••" required minlength="6" autocomplete="current-password">
+              <input type="password" id="authPassword" placeholder="••••••••" required minlength="6" autocomplete="new-password">
               <button type="button" class="btn-toggle-eye" onclick="toggleVisibilidadeSenhaAuth()" title="Exibir/Ocultar senha">👁️</button>
             </div>
             <div class="auth-forgot-row" id="authForgotRow">
@@ -651,6 +661,6 @@
   <!-- Toast Container -->
   <div class="toast-container" id="toastContainer"></div>
 
-  <script src="script.js?v=2.4"></script>
+  <script src="script.js?v=2.5"></script>
 </body>
 </html>
