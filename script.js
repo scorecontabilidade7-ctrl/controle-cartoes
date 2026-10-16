@@ -171,35 +171,6 @@ function exibirInterfacePrincipal(autenticado) {
   }
 }
 
-function alternarTabAuth(tab) {
-  ESTADO.authTab = tab;
-  const tabLogin = document.getElementById('tabBtnLogin');
-  const tabCad = document.getElementById('tabBtnCadastro');
-  const btnSubmitText = document.getElementById('btnAuthText');
-  const btnSubmitIcon = document.getElementById('btnAuthIcon');
-  const passHint = document.getElementById('authPasswordHint');
-  const forgotRow = document.getElementById('authForgotRow');
-  const alertEl = document.getElementById('authAlert');
-
-  if (alertEl) alertEl.style.display = 'none';
-
-  if (tab === 'login') {
-    if (tabLogin) tabLogin.classList.add('active');
-    if (tabCad) tabCad.classList.remove('active');
-    if (btnSubmitText) btnSubmitText.textContent = 'Entrar no Sistema';
-    if (btnSubmitIcon) btnSubmitIcon.textContent = '🚀';
-    if (passHint) passHint.style.display = 'none';
-    if (forgotRow) forgotRow.style.display = 'flex';
-  } else {
-    if (tabCad) tabCad.classList.add('active');
-    if (tabLogin) tabLogin.classList.remove('active');
-    if (btnSubmitText) btnSubmitText.textContent = 'Criar Nova Conta';
-    if (btnSubmitIcon) btnSubmitIcon.textContent = '✨';
-    if (passHint) passHint.style.display = 'block';
-    if (forgotRow) forgotRow.style.display = 'none';
-  }
-}
-
 function toggleVisibilidadeSenhaAuth() {
   const input = document.getElementById('authPassword');
   if (input) {
@@ -264,48 +235,27 @@ async function submeterAuth(event) {
   }
 
   if (btnSubmit) btnSubmit.disabled = true;
-  if (btnText) btnText.textContent = ESTADO.authTab === 'login' ? 'Autenticando...' : 'Cadastrando...';
+  if (btnText) btnText.textContent = 'Autenticando...';
 
   try {
-    if (ESTADO.authTab === 'login') {
-      const { data, error } = await supabaseClient.auth.signInWithPassword({
-        email,
-        password: senha
-      });
+    const { data, error } = await supabaseClient.auth.signInWithPassword({
+      email,
+      password: senha
+    });
 
-      if (error) throw error;
-      showToast(`Bem-vindo, ${data.user.email}!`, 'success');
-      definirUsuarioAutenticado(data.user);
-    } else {
-      const { data, error } = await supabaseClient.auth.signUp({
-        email,
-        password: senha
-      });
-
-      if (error) throw error;
-
-      if (data.user && (!data.session || data.user.identities?.length === 0)) {
-        exibirAlertaAuth('Conta criada com sucesso! Se a confirmação de e-mail estiver ativa no seu Supabase, valide o link enviado na sua caixa de entrada.', 'success');
-        showToast('Cadastro realizado! Verifique seu e-mail caso solicitado.', 'info');
-      } else if (data.session) {
-        showToast('Conta criada e autenticada com sucesso!', 'success');
-        definirUsuarioAutenticado(data.user);
-      }
-    }
+    if (error) throw error;
+    showToast(`Bem-vindo, ${data.user.email}!`, 'success');
+    definirUsuarioAutenticado(data.user);
   } catch (err) {
     console.error('Erro na autenticação:', err);
     let msg = err.message || 'Erro ao processar autenticação.';
     if (msg.includes('Invalid login credentials')) {
       msg = 'E-mail ou senha incorretos.';
-    } else if (msg.includes('User already registered')) {
-      msg = 'Este e-mail já está cadastrado. Alterne para a aba "Entrar".';
-    } else if (msg.includes('Password should be at least')) {
-      msg = 'A senha deve conter no mínimo 6 caracteres.';
     }
     exibirAlertaAuth(msg, 'error');
   } finally {
     if (btnSubmit) btnSubmit.disabled = false;
-    if (btnText) btnText.textContent = ESTADO.authTab === 'login' ? 'Entrar no Sistema' : 'Criar Nova Conta';
+    if (btnText) btnText.textContent = 'Entrar no Sistema';
   }
 }
 
