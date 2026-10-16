@@ -1,0 +1,13 @@
+{
+  "name": "controle-inteligente-de-cartoes",
+  "version": "1.0.0",
+  "description": "Sistema de Controle Inteligente de Cartões - Score Tech",
+  "main": "index.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}

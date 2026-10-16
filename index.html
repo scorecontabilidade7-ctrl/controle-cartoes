@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Score Cards • Projeção Transacional de Faturas e Cartões</title>
+  <meta name="description" content="Sistema inteligente de extração de faturas via IA e projeção de desembolso futuro de compras parceladas por Banco e Portador.">
+  
+  <!-- Tipografia Moderna (Google Fonts) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Top App Header -->
+  <header class="app-header">
+    <div class="header-container">
+      <div class="brand-box">
+        <div class="brand-logo">
+          <span class="logo-icon">💳</span>
+          <div class="logo-glow"></div>
+        </div>
+        <div class="brand-text">
+          <h1>Score <span>Cards</span></h1>
+          <p>Projeção Transacional de Faturas • Múltiplos Bancos & Portadores</p>
+        </div>
+      </div>
+
+      <!-- Configurações Rápidas de IA, Nuvem e Projeção -->
+      <div class="header-controls">
+        <!-- Filtro por Mês das Faturas Salvas -->
+        <div class="control-group">
+          <label for="selectFiltroMesFatura">📅 Filtrar Mês:</label>
+          <select id="selectFiltroMesFatura" onchange="aoFiltrarMesFaturas()" title="Filtrar lista de faturas pelo mês de referência">
+            <option value="">Todos os Meses</option>
+          </select>
+        </div>
+
+        <!-- Seletor de Faturas em Nuvem (Supabase) -->
+        <div class="control-group">
+          <label for="selectFaturaNuvem">☁️ Faturas Salvas:</label>
+          <select id="selectFaturaNuvem" onchange="aoSelecionarFaturaNuvem()">
+            <option value="">Carregando da nuvem...</option>
+          </select>
+        </div>
+
+        <!-- Botão Ver Resumo Anual -->
+        <button type="button" class="btn btn-secondary btn-sm" id="btnToggleResumoAnual" onclick="alternarVisaoResumoAnual()">
+          <span>📈</span>
+          <span>Gastos Ano a Ano</span>
+        </button>
+
+        <!-- Seletor de Motor IA -->
+        <div class="control-group">
+          <label for="selectProvedorIA">Motor IA:</label>
+          <select id="selectProvedorIA" onchange="alterarProvedorIA()">
+            <option value="gemini" selected>Google Gemini (Recomendado)</option>
+            <option value="groq">Groq Cloud AI (Ultra-rápido)</option>
+            <option value="local">Modo Local (Offline / Sem Chave)</option>
+          </select>
+        </div>
+
+        <!-- Botão Configurar Chave de API -->
+        <button type="button" class="btn btn-secondary btn-sm" id="btnConfigApiKey" onclick="abrirModalApiKey()">
+          <span id="apiKeyStatusIcon">🔑</span>
+          <span id="apiKeyStatusText">Configurar API Key</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="main-container">
+
+    <!-- Seção Especial: Resumo e Comparativo de Gastos de Ano a Ano (Supabase) -->
+    <section class="anual-section" id="secaoResumoAnual" style="display: none;">
+      <div class="anual-header">
+        <div class="anual-header-left">
+          <div class="anual-badge">📈 HISTÓRICO CONSOLIDADO</div>
+          <h2>Evolução e Gastos de Ano a Ano</h2>
+          <p>Total desembolsado por ano civil com base em todas as faturas armazenadas na nuvem (Supabase).</p>
+        </div>
+        <div class="anual-header-right">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="carregarResumoAnual(true)">
+            <span>🔄</span> Atualizar Dados Anuais
+          </button>
+          <button type="button" class="btn btn-outline-close" onclick="alternarVisaoResumoAnual()" title="Fechar Resumo Anual">
+            &times;
+          </button>
+        </div>
+      </div>
+
+      <div class="anual-cards-grid" id="gridCardsAnuais">
+        <!-- Renderizado dinamicamente pelo JavaScript -->
+      </div>
+    </section>
+
+    <!-- Seção 1: Upload Dropzone Minimalista -->
+    <section class="upload-section">
+      <div class="dropzone-card" id="pdfDropzone">
+        <input type="file" id="pdfInput" accept=".pdf" multiple style="display: none;" onchange="handleFileSelect(event)">
+        
+        <div class="dropzone-body" onclick="document.getElementById('pdfInput').click()">
+          <div class="dropzone-icon-ring">
+            <span class="upload-icon">📄</span>
+          </div>
+          <div class="dropzone-text">
+            <h3>Arraste e solte suas faturas em PDF aqui</h3>
+            <p>Suporta faturas do <strong>Bradesco, Itaú, Caixa, Stone, Nubank, Santander</strong> e outros. O sistema identifica todos os portadores e projeta os meses futuros até a última parcela.</p>
+            <div class="dropzone-tags">
+              <span class="engine-badge" id="engineBadgeStatus">🤖 Motor: Google Gemini Ativo</span>
+              <span class="engine-badge cloud">☁️ Armazenamento Seguro em Nuvem (Supabase)</span>
+              <span class="engine-badge info">📊 Projeção Automática até a Última Parcela</span>
+            </div>
+          </div>
+          <button type="button" class="btn btn-primary btn-upload-cta">
+            <span>📂</span> Selecionar Faturas (PDF)
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Indicador de Carregamento / Processamento -->
+    <div id="loadingIndicator" class="loading-box" style="display: none;">
+      <div class="spinner"></div>
+      <div class="loading-text">
+        <h4 id="loadingTitle">Processando Fatura com Inteligência Artificial...</h4>
+        <p id="loadingSub">Identificando portadores, compras parceladas e calculando projeção financeira.</p>
+      </div>
+    </div>
+
+    <!-- Seção 2: Área de Resultados e Matriz de Projeção -->
+    <div id="resultsArea" style="display: none;">
+
+      <!-- Barra de Resumo Executivo / KPIs -->
+      <section class="kpis-grid">
+        <div class="kpi-card highlight-card">
+          <div class="kpi-icon">📅</div>
+          <div class="kpi-data">
+            <span class="kpi-label">Desembolso no Próximo Mês</span>
+            <h2 class="kpi-value" id="kpiProximoMes">R$ 0,00</h2>
+            <span class="kpi-sub" id="kpiProximoMesLabel">Impacto no próximo ciclo</span>
+          </div>
+        </div>
+
+        <div class="kpi-card">
+          <div class="kpi-icon">💰</div>
+          <div class="kpi-data">
+            <span class="kpi-label">Comprometimento Total Futuro</span>
+            <h2 class="kpi-value" id="kpiComprometimentoTotal">R$ 0,00</h2>
+            <span class="kpi-sub">Soma de todas as parcelas restantes</span>
+          </div>
+        </div>
+
+        <div class="kpi-card">
+          <div class="kpi-icon">💳</div>
+          <div class="kpi-data">
+            <span class="kpi-label">Cartões / Portadores Mapeados</span>
+            <h2 class="kpi-value" id="kpiTotalCartoes">0</h2>
+            <span class="kpi-sub" id="kpiBancoNome">Banco identificado</span>
+          </div>
+        </div>
+
+        <div class="kpi-card">
+          <div class="kpi-icon">🛍️</div>
+          <div class="kpi-data">
+            <span class="kpi-label">Compras Parceladas Ativas</span>
+            <h2 class="kpi-value" id="kpiTotalParcelas">0</h2>
+            <span class="kpi-sub">Transações com saldo a vencer</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Barra de Ações da Projeção -->
+      <div class="actions-bar">
+        <div class="actions-left">
+          <div class="title-with-badge">
+            <h3 class="section-title">📊 Matriz de Projeção de Desembolso Futuro</h3>
+            <span class="badge-nuvem-status" id="badgeNuvemStatus">☁️ Salvo no Supabase</span>
+          </div>
+          <span class="section-sub">Clique em qualquer cartão/portador para ver ou ocultar as compras individuais</span>
+          
+          <!-- Subtotal de comprometimento agrupado por ano civil -->
+          <div class="comprometimento-anos-container" id="containerComprometimentoAnos"></div>
+        </div>
+        <div class="actions-right">
+          <button type="button" class="btn btn-success" id="btnExportarExcel" onclick="baixarExcelProjecao()">
+            <span>📥</span> Baixar Relatório em Excel (.xlsx)
+          </button>
+          <button type="button" class="btn btn-outline-danger btn-sm" id="btnExcluirFaturaNuvem" style="display: none;" onclick="excluirFaturaAtualNuvem()" title="Excluir esta fatura da nuvem">
+            <span>🗑️</span> Excluir da Nuvem
+          </button>
+          <button type="button" class="btn btn-secondary" onclick="limparAnalise()">
+            <span>🔄</span> Nova Análise
+          </button>
+        </div>
+      </div>
+
+      <!-- Tabela Matriz de Desembolso (Banco ➔ Portador ➔ Meses Futuros) -->
+      <section class="matrix-card">
+        <div class="table-responsive">
+          <table class="matrix-table" id="matrixTable">
+            <thead>
+              <tr id="matrixTableHeadRow">
+                <!-- Gerado dinamicamente com as colunas de meses -->
+              </tr>
+            </thead>
+            <tbody id="matrixTableBody">
+              <!-- Gerado dinamicamente -->
+            </tbody>
+            <tfoot id="matrixTableFoot">
+              <!-- Gerado dinamicamente com os totais -->
+            </tfoot>
+          </table>
+        </div>
+      </section>
+
+      <!-- Detalhamento de Todas as Parcelas -->
+      <section class="details-section">
+        <div class="details-header" onclick="toggleSecaoDetalhes()">
+          <div class="details-header-left">
+            <span class="details-toggle-icon" id="detailsToggleIcon">▼</span>
+            <h4>📋 Detalhamento Individual de Todas as Compras Parceladas (<span id="detalhesQtdParcelas">0</span>)</h4>
+          </div>
+          <span class="details-hint">Exibir/Ocultar lista completa</span>
+        </div>
+
+        <div class="details-content" id="detailsContent">
+          <div class="table-responsive">
+            <table class="details-table">
+              <thead>
+                <tr>
+                  <th>Banco</th>
+                  <th>Portador / Cartão</th>
+                  <th>Estabelecimento</th>
+                  <th>Categoria</th>
+                  <th>Data</th>
+                  <th>Parc. Atual</th>
+                  <th>Parc. Total</th>
+                  <th>Restantes</th>
+                  <th>Valor Parcela</th>
+                  <th>Saldo a Pagar</th>
+                </tr>
+              </thead>
+              <tbody id="detailsTableBody">
+                <!-- Gerado dinamicamente -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+    </div>
+
+  </main>
+
+  <!-- Modal: Configuração de Chave de API (Gemini / Groq) -->
+  <div class="modal-backdrop" id="modalApiKey">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title-box">
+          <span class="modal-icon">🔑</span>
+          <div>
+            <h3>Configuração de Chave de API</h3>
+            <p>Conecte o Google Gemini ou Groq para análise de altíssima precisão</p>
+          </div>
+        </div>
+        <button class="modal-close-btn" onclick="fecharModalApiKey()">&times;</button>
+      </div>
+
+      <div class="modal-body form-body">
+        <div class="form-group">
+          <label for="inputProvedorModal">Provedor de Inteligência Artificial:</label>
+          <select id="inputProvedorModal" onchange="atualizarInstrucoesProvedor()">
+            <option value="gemini">Google Gemini (Modelo gemini-2.5-flash) • Gratuito no AI Studio</option>
+            <option value="groq">Groq Cloud AI • Ultra-rápido</option>
+            <option value="local">Modo Local (Offline, sem IA)</option>
+          </select>
+        </div>
+
+        <div class="form-group" id="groupApiKeyInput">
+          <label for="inputApiKeyValor">Chave de API (<span id="labelNomeProvedor">Gemini</span>):</label>
+          <div class="input-password-wrapper">
+            <input type="password" id="inputApiKeyValor" placeholder="Cole sua chave aqui (AIzaSy... ou gsk_...)">
+            <button type="button" class="btn-toggle-eye" onclick="toggleExibirApiKey()">👁️</button>
+          </div>
+          <span class="field-hint" id="helpLinkProvedor">
+            Obtenha sua chave gratuita em: <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">Google AI Studio (aistudio.google.com)</a>
+          </span>
+        </div>
+
+        <div class="info-alert-box">
+          <span class="alert-icon">🔒</span>
+          <p>Sua chave fica gravada apenas no seu navegador (localStorage) e é enviada diretamente ao seu servidor local durante o processamento do PDF.</p>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="fecharModalApiKey()">Cancelar</button>
+        <button type="button" class="btn btn-primary" onclick="salvarConfiguracaoApiKey()">
+          <span>💾</span> Salvar Configuração
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
