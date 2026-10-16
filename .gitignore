@@ -15,6 +15,7 @@ ENV/
 
 # Arquivos temporários e IDE
 scratch/
+legacy/
 .vscode/
 .idea/
 *.swp
