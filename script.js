@@ -158,16 +158,22 @@ function exibirInterfacePrincipal(autenticado) {
   const headerControls = document.querySelector('.header-controls');
 
   if (authSection) {
-    authSection.style.display = autenticado ? 'none' : 'flex';
+    if (autenticado) {
+      authSection.classList.add('hidden');
+      authSection.style.setProperty('display', 'none', 'important');
+    } else {
+      authSection.classList.remove('hidden');
+      authSection.style.setProperty('display', 'flex', 'important');
+    }
   }
   if (mainContent) {
-    mainContent.style.display = autenticado ? 'block' : 'none';
+    mainContent.style.setProperty('display', autenticado ? 'block' : 'none', 'important');
   }
   if (appHeader) {
-    appHeader.style.display = autenticado ? 'block' : 'none';
+    appHeader.style.setProperty('display', autenticado ? 'block' : 'none', 'important');
   }
   if (headerControls) {
-    headerControls.style.display = autenticado ? 'flex' : 'none';
+    headerControls.style.setProperty('display', autenticado ? 'flex' : 'none', 'important');
   }
 }
 
