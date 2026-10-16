@@ -218,9 +218,11 @@ def obter_resumo_anual_do_supabase() -> List[Dict[str, Any]]:
 
 
 # ============================================================================
-# ROTAS DA API
+# ROTAS DA API (com suporte a prefixo /api e raiz para flexibilidade na Vercel)
 # ============================================================================
 
+@app.get("/")
+@app.get("/health")
 @app.get("/api")
 @app.get("/api/health")
 def health_check():
@@ -231,6 +233,7 @@ def health_check():
     }
 
 
+@app.get("/faturas-salvas")
 @app.get("/api/faturas-salvas")
 def get_faturas_salvas(id: Optional[str] = Query(None)):
     try:
@@ -246,6 +249,7 @@ def get_faturas_salvas(id: Optional[str] = Query(None)):
         return JSONResponse(status_code=500, content={"sucesso": False, "erro": str(e)})
 
 
+@app.delete("/faturas-salvas")
 @app.delete("/api/faturas-salvas")
 def delete_fatura_salva(id: Optional[str] = Query(None)):
     if not id:
@@ -257,6 +261,7 @@ def delete_fatura_salva(id: Optional[str] = Query(None)):
         return JSONResponse(status_code=500, content={"sucesso": False, "erro": str(e)})
 
 
+@app.get("/resumo-anual")
 @app.get("/api/resumo-anual")
 def get_resumo_anual():
     try:
@@ -266,7 +271,9 @@ def get_resumo_anual():
         return JSONResponse(status_code=500, content={"sucesso": False, "erro": str(e)})
 
 
+@app.post("/analisar-fatura-ia")
 @app.post("/api/analisar-fatura-ia")
+@app.post("/analisar-pdf")
 @app.post("/api/analisar-pdf")
 async def analisar_fatura(
     pdf: UploadFile = File(...),
@@ -329,6 +336,7 @@ async def analisar_fatura(
                 pass
 
 
+@app.get("/download-excel")
 @app.get("/api/download-excel")
 def download_excel(id: Optional[str] = Query(None), fatura_id: Optional[str] = Query(None)):
     excel_bytes = None
@@ -374,3 +382,4 @@ def download_excel(id: Optional[str] = Query(None), fatura_id: Optional[str] = Q
             "Content-Disposition": f'attachment; filename="projecao_cartoes_{int(time.time())}.xlsx"'
         }
     )
+
