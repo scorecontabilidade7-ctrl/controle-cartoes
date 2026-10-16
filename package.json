@@ -1,0 +1,12 @@
+{
+  "name": "controle-inteligente-de-cartoes",
+  "version": "1.0.0",
+  "description": "Sistema de Controle Inteligente de Cartões - Score Tech",
+  "scripts": {
+    "dev": "python -m uvicorn api.index:app --reload --port 3000",
+    "start": "python -m uvicorn api.index:app --port 3000"
+  },
+  "keywords": [],
+  "author": "Score Tech",
+  "license": "ISC"
+}

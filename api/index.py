@@ -22,7 +22,7 @@ if CURRENT_DIR not in sys.path:
     sys.path.insert(0, CURRENT_DIR)
 
 from fastapi import FastAPI, UploadFile, File, Header, Query, HTTPException, Response
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 import requests
 
@@ -221,7 +221,6 @@ def obter_resumo_anual_do_supabase() -> List[Dict[str, Any]]:
 # ROTAS DA API (com suporte a prefixo /api e raiz para flexibilidade na Vercel)
 # ============================================================================
 
-@app.get("/")
 @app.get("/health")
 @app.get("/api")
 @app.get("/api/health")
@@ -231,6 +230,26 @@ def health_check():
         "app": "Score Cards • Controle Inteligente de Cartões",
         "runtime": "Vercel Python Serverless"
     }
+
+
+@app.get("/", response_class=FileResponse)
+def serve_index():
+    index_path = os.path.join(ROOT_DIR, "index.html")
+    if os.path.exists(index_path):
+        return FileResponse(index_path)
+    return FileResponse("index.html")
+
+
+@app.get("/style.css", response_class=FileResponse)
+def serve_css():
+    css_path = os.path.join(ROOT_DIR, "style.css")
+    return FileResponse(css_path if os.path.exists(css_path) else "style.css", media_type="text/css")
+
+
+@app.get("/script.js", response_class=FileResponse)
+def serve_js():
+    js_path = os.path.join(ROOT_DIR, "script.js")
+    return FileResponse(js_path if os.path.exists(js_path) else "script.js", media_type="application/javascript")
 
 
 @app.get("/faturas-salvas")
