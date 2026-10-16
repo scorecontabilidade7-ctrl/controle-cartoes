@@ -61,15 +61,234 @@ function sanitizarObjetoSemAcentos(obj) {
 }
 
 // ============================================================================
-// 2. INICIALIZAÇÃO
+// 1.1 CONFIGURAÇÃO DO SUPABASE AUTH
 // ============================================================================
-document.addEventListener('DOMContentLoaded', () => {
+const SUPABASE_AUTH_CONFIG = {
+  url: 'https://lunsyufvxkiivnrhpxpj.supabase.co',
+  anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx1bnN5dWZ2eGtpaXZucmhweHBqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4MTI0MTYsImV4cCI6MjA5NzM4ODQxNn0.kzDEPVhEe0reqsWLiGOfQ6V-YK0rgRXJFvYlWDglivA'
+};
+
+let supabaseClient = null;
+if (typeof window !== 'undefined' && window.supabase && typeof window.supabase.createClient === 'function') {
+  try {
+    supabaseClient = window.supabase.createClient(SUPABASE_AUTH_CONFIG.url, SUPABASE_AUTH_CONFIG.anonKey);
+  } catch (e) {
+    console.error('Falha ao instanciar Supabase Client:', e);
+  }
+}
+
+// ============================================================================
+// 2. INICIALIZAÇÃO & AUTENTICAÇÃO
+// ============================================================================
+document.addEventListener('DOMContentLoaded', async () => {
   inicializarConfiguracoes();
   configurarDragAndDrop();
   atualizarStatusApiKeyBadge();
+  await inicializarAutenticacao();
+});
+
+async function inicializarAutenticacao() {
+  if (!supabaseClient) {
+    console.warn('Supabase SDK não disponível, liberando acesso local.');
+    exibirInterfacePrincipal(true);
+    carregarListaFaturasNuvem();
+    carregarResumoAnual();
+    return;
+  }
+
+  // 1. Escuta mudanças de sessão em tempo real (login, logout, refresh de token)
+  supabaseClient.auth.onAuthStateChange((event, session) => {
+    if (session && session.user) {
+      definirUsuarioAutenticado(session.user);
+    } else {
+      definirUsuarioDeslogado();
+    }
+  });
+
+  // 2. Verifica se já existe sessão salva no localStorage do Supabase
+  try {
+    const { data: { session }, error } = await supabaseClient.auth.getSession();
+    if (session && session.user) {
+      definirUsuarioAutenticado(session.user);
+    } else {
+      definirUsuarioDeslogado();
+    }
+  } catch (err) {
+    console.error('Erro ao verificar sessão do Supabase:', err);
+    definirUsuarioDeslogado();
+  }
+}
+
+function definirUsuarioAutenticado(user) {
+  ESTADO.usuarioAtual = user;
+  exibirInterfacePrincipal(true);
+
+  // Atualiza badge de perfil no header
+  const profileBadge = document.getElementById('userProfileBadge');
+  const emailDisplay = document.getElementById('userEmailDisplay');
+  const avatarEl = document.getElementById('userAvatar');
+
+  if (profileBadge) profileBadge.style.display = 'flex';
+  if (emailDisplay) emailDisplay.textContent = user.email || 'Usuário Score';
+  if (avatarEl) {
+    const letra = (user.email || 'U').charAt(0).toUpperCase();
+    avatarEl.textContent = letra;
+  }
+
+  // Carrega dados da nuvem protegidos
   carregarListaFaturasNuvem();
   carregarResumoAnual();
-});
+}
+
+function definirUsuarioDeslogado() {
+  ESTADO.usuarioAtual = null;
+  exibirInterfacePrincipal(false);
+
+  const profileBadge = document.getElementById('userProfileBadge');
+  if (profileBadge) profileBadge.style.display = 'none';
+
+  const authAlert = document.getElementById('authAlert');
+  if (authAlert) authAlert.style.display = 'none';
+}
+
+function exibirInterfacePrincipal(autenticado) {
+  const authSection = document.getElementById('authSection');
+  const mainContent = document.getElementById('appMainContent');
+  const headerControls = document.querySelector('.header-controls');
+
+  if (authSection) {
+    authSection.style.display = autenticado ? 'none' : 'flex';
+  }
+  if (mainContent) {
+    mainContent.style.display = autenticado ? 'block' : 'none';
+  }
+  if (headerControls) {
+    headerControls.style.display = autenticado ? 'flex' : 'none';
+  }
+}
+
+function alternarTabAuth(tab) {
+  ESTADO.authTab = tab;
+  const tabLogin = document.getElementById('tabBtnLogin');
+  const tabCad = document.getElementById('tabBtnCadastro');
+  const btnSubmitText = document.getElementById('btnAuthText');
+  const btnSubmitIcon = document.getElementById('btnAuthIcon');
+  const passHint = document.getElementById('authPasswordHint');
+  const alertEl = document.getElementById('authAlert');
+
+  if (alertEl) alertEl.style.display = 'none';
+
+  if (tab === 'login') {
+    if (tabLogin) tabLogin.classList.add('active');
+    if (tabCad) tabCad.classList.remove('active');
+    if (btnSubmitText) btnSubmitText.textContent = 'Entrar no Sistema';
+    if (btnSubmitIcon) btnSubmitIcon.textContent = '🚀';
+    if (passHint) passHint.style.display = 'none';
+  } else {
+    if (tabCad) tabCad.classList.add('active');
+    if (tabLogin) tabLogin.classList.remove('active');
+    if (btnSubmitText) btnSubmitText.textContent = 'Criar Nova Conta';
+    if (btnSubmitIcon) btnSubmitIcon.textContent = '✨';
+    if (passHint) passHint.style.display = 'block';
+  }
+}
+
+function toggleVisibilidadeSenhaAuth() {
+  const input = document.getElementById('authPassword');
+  if (input) {
+    input.type = input.type === 'password' ? 'text' : 'password';
+  }
+}
+
+function exibirAlertaAuth(mensagem, tipo = 'error') {
+  const alertEl = document.getElementById('authAlert');
+  if (!alertEl) return;
+  alertEl.className = `auth-alert ${tipo}`;
+  alertEl.textContent = (tipo === 'error' ? '⚠️ ' : '✅ ') + mensagem;
+  alertEl.style.display = 'flex';
+}
+
+async function submeterAuth(event) {
+  event.preventDefault();
+  if (!supabaseClient) {
+    showToast('Cliente Supabase não inicializado.', 'error');
+    return;
+  }
+
+  const emailInput = document.getElementById('authEmail');
+  const passInput = document.getElementById('authPassword');
+  const btnSubmit = document.getElementById('btnAuthSubmit');
+  const btnText = document.getElementById('btnAuthText');
+
+  const email = emailInput ? emailInput.value.trim() : '';
+  const senha = passInput ? passInput.value : '';
+
+  if (!email || !senha) {
+    exibirAlertaAuth('Por favor, informe e-mail e senha.');
+    return;
+  }
+
+  if (btnSubmit) btnSubmit.disabled = true;
+  if (btnText) btnText.textContent = ESTADO.authTab === 'login' ? 'Autenticando...' : 'Cadastrando...';
+
+  try {
+    if (ESTADO.authTab === 'login') {
+      const { data, error } = await supabaseClient.auth.signInWithPassword({
+        email,
+        password: senha
+      });
+
+      if (error) throw error;
+      showToast(`Bem-vindo, ${data.user.email}!`, 'success');
+      definirUsuarioAutenticado(data.user);
+    } else {
+      const { data, error } = await supabaseClient.auth.signUp({
+        email,
+        password: senha
+      });
+
+      if (error) throw error;
+
+      if (data.user && (!data.session || data.user.identities?.length === 0)) {
+        exibirAlertaAuth('Conta criada com sucesso! Se a confirmação de e-mail estiver ativa no seu Supabase, valide o link enviado na sua caixa de entrada.', 'success');
+        showToast('Cadastro realizado! Verifique seu e-mail caso solicitado.', 'info');
+      } else if (data.session) {
+        showToast('Conta criada e autenticada com sucesso!', 'success');
+        definirUsuarioAutenticado(data.user);
+      }
+    }
+  } catch (err) {
+    console.error('Erro na autenticação:', err);
+    let msg = err.message || 'Erro ao processar autenticação.';
+    if (msg.includes('Invalid login credentials')) {
+      msg = 'E-mail ou senha incorretos.';
+    } else if (msg.includes('User already registered')) {
+      msg = 'Este e-mail já está cadastrado. Alterne para a aba "Entrar".';
+    } else if (msg.includes('Password should be at least')) {
+      msg = 'A senha deve conter no mínimo 6 caracteres.';
+    }
+    exibirAlertaAuth(msg, 'error');
+  } finally {
+    if (btnSubmit) btnSubmit.disabled = false;
+    if (btnText) btnText.textContent = ESTADO.authTab === 'login' ? 'Entrar no Sistema' : 'Criar Nova Conta';
+  }
+}
+
+async function fazerLogout() {
+  const confirma = confirm('Deseja realmente sair do sistema?');
+  if (!confirma) return;
+
+  try {
+    if (supabaseClient) {
+      await supabaseClient.auth.signOut();
+    }
+  } catch (e) {
+    console.warn('Erro ao sair do Supabase:', e);
+  }
+  definirUsuarioDeslogado();
+  limparAnalise();
+  showToast('Sessão encerrada com sucesso.', 'info');
+}
 
 function inicializarConfiguracoes() {
   const selProvedor = document.getElementById('selectProvedorIA');

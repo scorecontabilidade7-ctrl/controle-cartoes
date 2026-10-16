@@ -12,6 +12,9 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   
   <link rel="stylesheet" href="style.css">
+  
+  <!-- Supabase JS Client Oficial (Autenticação e Sessão) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
@@ -69,11 +72,83 @@
           <span id="apiKeyStatusText">Configurar API Key</span>
         </button>
       </div>
+
+      <!-- Perfil de Usuário Autenticado (Supabase Auth) -->
+      <div class="user-profile-badge" id="userProfileBadge" style="display: none;">
+        <div class="user-avatar" id="userAvatar">U</div>
+        <div class="user-info-text">
+          <span class="user-email-label" id="userEmailDisplay">usuario@score.com</span>
+          <span class="user-role-label">Score Contabilidade</span>
+        </div>
+        <button type="button" class="btn btn-logout-sm" onclick="fazerLogout()" title="Encerrar sessão no sistema">
+          <span>🚪</span> Sair
+        </button>
+      </div>
     </div>
   </header>
 
+  <!-- Seção de Autenticação / Login (Score Tech Auth) -->
+  <section class="auth-section" id="authSection">
+    <div class="auth-wrapper">
+      <div class="auth-glow"></div>
+      <div class="auth-card">
+        <div class="auth-header">
+          <div class="auth-logo">
+            <span class="auth-logo-icon">💳</span>
+            <div class="auth-logo-glow"></div>
+          </div>
+          <h2>Score <span>Cards</span></h2>
+          <p>Controle Inteligente de Cartões & Projeção Transacional</p>
+        </div>
+
+        <!-- Tabs: Entrar vs Criar Conta -->
+        <div class="auth-tabs">
+          <button type="button" class="auth-tab-btn active" id="tabBtnLogin" onclick="alternarTabAuth('login')">
+            <span>🔑</span> Entrar
+          </button>
+          <button type="button" class="auth-tab-btn" id="tabBtnCadastro" onclick="alternarTabAuth('cadastro')">
+            <span>✨</span> Criar Conta
+          </button>
+        </div>
+
+        <!-- Formulário de Autenticação -->
+        <form id="authForm" onsubmit="submeterAuth(event)" class="auth-form">
+          <div class="form-group">
+            <label for="authEmail">E-mail de Acesso:</label>
+            <div class="auth-input-wrapper">
+              <span class="auth-input-icon">✉️</span>
+              <input type="email" id="authEmail" placeholder="seu.email@scorecontabilidade.com.br" required autocomplete="email">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="authPassword">Senha:</label>
+            <div class="auth-input-wrapper">
+              <span class="auth-input-icon">🔒</span>
+              <input type="password" id="authPassword" placeholder="••••••••" required minlength="6" autocomplete="current-password">
+              <button type="button" class="btn-toggle-eye" onclick="toggleVisibilidadeSenhaAuth()" title="Exibir/Ocultar senha">👁️</button>
+            </div>
+            <span class="field-hint" id="authPasswordHint" style="display: none;">A senha deve ter no mínimo 6 caracteres</span>
+          </div>
+
+          <div id="authAlert" class="auth-alert" style="display: none;"></div>
+
+          <button type="submit" class="btn btn-primary btn-auth-submit" id="btnAuthSubmit">
+            <span id="btnAuthIcon">🚀</span>
+            <span id="btnAuthText">Entrar no Sistema</span>
+          </button>
+        </form>
+
+        <div class="auth-footer">
+          <span class="auth-footer-tag">☁️ Autenticação Segura via Supabase Auth</span>
+          <span class="auth-footer-brand">Score Tech • 2026</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <!-- Main Container -->
-  <main class="main-container">
+  <main class="main-container" id="appMainContent" style="display: none;">
 
     <!-- Seção Especial: Resumo e Comparativo de Gastos de Ano a Ano (Supabase) -->
     <section class="anual-section" id="secaoResumoAnual" style="display: none;">
