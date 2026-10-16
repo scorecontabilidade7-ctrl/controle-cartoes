@@ -732,12 +732,47 @@ function toggleSecaoDetalhes() {
 // 8. EXPORTAÇÃO EXCEL (.XLSX)
 // ============================================================================
 function baixarExcelProjecao() {
-  if (!ESTADO.excelId) {
-    showToast('Planilha não disponível para download imediato.', 'info');
+  // 1. Download instantâneo se tiver base64 (gerado na hora, zero latência)
+  if (ESTADO.dadosAtuais && ESTADO.dadosAtuais.excel_base64) {
+    try {
+      const byteCharacters = atob(ESTADO.dadosAtuais.excel_base64);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const banco = (ESTADO.dadosAtuais.fatura && ESTADO.dadosAtuais.fatura.banco) || 'cartoes';
+      a.download = `projecao_${banco.toLowerCase().replace(/\s+/g, '_')}_${Date.now()}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast('Download da planilha de projeção iniciado!', 'success');
+      return;
+    } catch (e) {
+      console.warn('Erro ao processar base64, tentando rota de download:', e);
+    }
+  }
+
+  // 2. Download via endpoint com excelId
+  if (ESTADO.excelId) {
+    window.location.href = `/api/download-excel?id=${encodeURIComponent(ESTADO.excelId)}`;
+    showToast('Download da planilha de projeção iniciado!', 'success');
     return;
   }
-  window.location.href = `/api/download-excel?id=${ESTADO.excelId}`;
-  showToast('Download da planilha de projeção iniciado!', 'success');
+
+  // 3. Download para fatura histórica do Supabase
+  if (ESTADO.faturaSelecionadaId) {
+    window.location.href = `/api/download-excel?fatura_id=${encodeURIComponent(ESTADO.faturaSelecionadaId)}`;
+    showToast('Gerando e baixando planilha da fatura histórica...', 'info');
+    return;
+  }
+
+  showToast('Planilha não disponível para download imediato.', 'info');
 }
 
 function limparAnalise() {
