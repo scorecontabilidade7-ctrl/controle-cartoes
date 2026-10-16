@@ -154,6 +154,7 @@ function definirUsuarioDeslogado() {
 function exibirInterfacePrincipal(autenticado) {
   const authSection = document.getElementById('authSection');
   const mainContent = document.getElementById('appMainContent');
+  const appHeader = document.getElementById('appHeader') || document.querySelector('.app-header');
   const headerControls = document.querySelector('.header-controls');
 
   if (authSection) {
@@ -161,6 +162,9 @@ function exibirInterfacePrincipal(autenticado) {
   }
   if (mainContent) {
     mainContent.style.display = autenticado ? 'block' : 'none';
+  }
+  if (appHeader) {
+    appHeader.style.display = autenticado ? 'block' : 'none';
   }
   if (headerControls) {
     headerControls.style.display = autenticado ? 'flex' : 'none';
@@ -174,6 +178,7 @@ function alternarTabAuth(tab) {
   const btnSubmitText = document.getElementById('btnAuthText');
   const btnSubmitIcon = document.getElementById('btnAuthIcon');
   const passHint = document.getElementById('authPasswordHint');
+  const forgotRow = document.getElementById('authForgotRow');
   const alertEl = document.getElementById('authAlert');
 
   if (alertEl) alertEl.style.display = 'none';
@@ -184,12 +189,14 @@ function alternarTabAuth(tab) {
     if (btnSubmitText) btnSubmitText.textContent = 'Entrar no Sistema';
     if (btnSubmitIcon) btnSubmitIcon.textContent = '🚀';
     if (passHint) passHint.style.display = 'none';
+    if (forgotRow) forgotRow.style.display = 'flex';
   } else {
     if (tabCad) tabCad.classList.add('active');
     if (tabLogin) tabLogin.classList.remove('active');
     if (btnSubmitText) btnSubmitText.textContent = 'Criar Nova Conta';
     if (btnSubmitIcon) btnSubmitIcon.textContent = '✨';
     if (passHint) passHint.style.display = 'block';
+    if (forgotRow) forgotRow.style.display = 'none';
   }
 }
 
@@ -200,11 +207,39 @@ function toggleVisibilidadeSenhaAuth() {
   }
 }
 
+async function solicitarRecuperacaoSenha(event) {
+  if (event) event.preventDefault();
+  const emailInput = document.getElementById('authEmail');
+  const email = emailInput ? emailInput.value.trim() : '';
+
+  if (!email) {
+    exibirAlertaAuth('Por favor, informe seu e-mail no campo acima para enviarmos o link de recuperação de senha.', 'error');
+    if (emailInput) emailInput.focus();
+    return;
+  }
+
+  if (!supabaseClient) {
+    exibirAlertaAuth('Cliente Supabase não inicializado.', 'error');
+    return;
+  }
+
+  try {
+    exibirAlertaAuth('Enviando link de recuperação...', 'info');
+    const { error } = await supabaseClient.auth.resetPasswordForEmail(email);
+    if (error) throw error;
+    exibirAlertaAuth(`Link de recuperação de senha enviado com sucesso para ${email}! Verifique sua caixa de entrada.`, 'success');
+  } catch (err) {
+    console.error('Erro na recuperação de senha:', err);
+    exibirAlertaAuth(err.message || 'Erro ao solicitar link de redefinição de senha.', 'error');
+  }
+}
+
 function exibirAlertaAuth(mensagem, tipo = 'error') {
   const alertEl = document.getElementById('authAlert');
   if (!alertEl) return;
   alertEl.className = `auth-alert ${tipo}`;
-  alertEl.textContent = (tipo === 'error' ? '⚠️ ' : '✅ ') + mensagem;
+  const icon = tipo === 'error' ? '⚠️ ' : (tipo === 'success' ? '✅ ' : 'ℹ️ ');
+  alertEl.textContent = icon + mensagem;
   alertEl.style.display = 'flex';
 }
 

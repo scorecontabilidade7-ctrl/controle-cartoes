@@ -232,24 +232,31 @@ def health_check():
     }
 
 
+STATIC_HEADERS = {
+    "Cache-Control": "no-cache, no-store, must-revalidate",
+    "Pragma": "no-cache",
+    "Expires": "0"
+}
+
 @app.get("/", response_class=FileResponse)
 def serve_index():
     index_path = os.path.join(ROOT_DIR, "index.html")
-    if os.path.exists(index_path):
-        return FileResponse(index_path)
-    return FileResponse("index.html")
+    path_to_serve = index_path if os.path.exists(index_path) else "index.html"
+    return FileResponse(path_to_serve, headers=STATIC_HEADERS)
 
 
 @app.get("/style.css", response_class=FileResponse)
 def serve_css():
     css_path = os.path.join(ROOT_DIR, "style.css")
-    return FileResponse(css_path if os.path.exists(css_path) else "style.css", media_type="text/css")
+    path_to_serve = css_path if os.path.exists(css_path) else "style.css"
+    return FileResponse(path_to_serve, media_type="text/css", headers=STATIC_HEADERS)
 
 
 @app.get("/script.js", response_class=FileResponse)
 def serve_js():
     js_path = os.path.join(ROOT_DIR, "script.js")
-    return FileResponse(js_path if os.path.exists(js_path) else "script.js", media_type="application/javascript")
+    path_to_serve = js_path if os.path.exists(js_path) else "script.js"
+    return FileResponse(path_to_serve, media_type="application/javascript", headers=STATIC_HEADERS)
 
 
 @app.get("/faturas-salvas")

@@ -11,15 +11,287 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=2.2">
+  
+  <!-- Estilos Críticos da Tela de Login (Garantia de renderização perfeita e imune a cache) -->
+  <style id="auth-critical-styles">
+    /* Fundo em tela cheia centralizado para a autenticação */
+    .auth-section {
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      min-height: 100vh !important;
+      width: 100% !important;
+      padding: 2rem 1.25rem !important;
+      position: relative !important;
+      box-sizing: border-box !important;
+      background: radial-gradient(circle at 50% 20%, rgba(16, 185, 129, 0.12) 0%, transparent 60%),
+                  radial-gradient(circle at 85% 85%, rgba(6, 182, 212, 0.08) 0%, transparent 50%),
+                  #0b0f17 !important;
+    }
+    .auth-wrapper {
+      position: relative !important;
+      width: 100% !important;
+      max-width: 440px !important;
+      margin: 0 auto !important;
+      box-sizing: border-box !important;
+      z-index: 2 !important;
+    }
+    .auth-glow {
+      position: absolute !important;
+      top: 50% !important;
+      left: 50% !important;
+      transform: translate(-50%, -50%) !important;
+      width: 340px !important;
+      height: 340px !important;
+      background: radial-gradient(circle, rgba(16, 185, 129, 0.28) 0%, rgba(6, 182, 212, 0.12) 50%, transparent 70%) !important;
+      filter: blur(60px) !important;
+      pointer-events: none !important;
+      border-radius: 50% !important;
+      z-index: 1 !important;
+    }
+    .auth-card {
+      position: relative !important;
+      z-index: 2 !important;
+      background: rgba(17, 24, 39, 0.88) !important;
+      backdrop-filter: blur(24px) !important;
+      -webkit-backdrop-filter: blur(24px) !important;
+      border: 1px solid rgba(255, 255, 255, 0.12) !important;
+      border-radius: 22px !important;
+      padding: 2.5rem 2rem !important;
+      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.65), 0 0 35px rgba(16, 185, 129, 0.1) !important;
+      box-sizing: border-box !important;
+    }
+    .auth-header {
+      text-align: center !important;
+      margin-bottom: 1.5rem !important;
+    }
+    .auth-logo {
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      width: 64px !important;
+      height: 64px !important;
+      border-radius: 18px !important;
+      background: linear-gradient(135deg, rgba(16, 185, 129, 0.25) 0%, rgba(6, 182, 212, 0.15) 100%) !important;
+      border: 1px solid rgba(16, 185, 129, 0.45) !important;
+      margin-bottom: 0.85rem !important;
+      position: relative !important;
+      box-shadow: 0 0 25px rgba(16, 185, 129, 0.3) !important;
+    }
+    .auth-logo-icon {
+      font-size: 2rem !important;
+      line-height: 1 !important;
+    }
+    .auth-header h2 {
+      font-family: 'Outfit', sans-serif !important;
+      font-size: 1.85rem !important;
+      font-weight: 700 !important;
+      color: #f8fafc !important;
+      letter-spacing: -0.5px !important;
+      margin: 0 !important;
+    }
+    .auth-header h2 span {
+      background: linear-gradient(135deg, #34d399 0%, #06b6d4 100%) !important;
+      -webkit-background-clip: text !important;
+      -webkit-text-fill-color: transparent !important;
+    }
+    .auth-header p {
+      font-size: 0.85rem !important;
+      color: #94a3b8 !important;
+      margin-top: 0.35rem !important;
+    }
+    .auth-tabs {
+      display: flex !important;
+      background: rgba(255, 255, 255, 0.05) !important;
+      padding: 4px !important;
+      border-radius: 12px !important;
+      border: 1px solid rgba(255, 255, 255, 0.08) !important;
+      margin-bottom: 1.5rem !important;
+      gap: 4px !important;
+      box-sizing: border-box !important;
+    }
+    .auth-tab-btn {
+      flex: 1 !important;
+      padding: 0.65rem 0.75rem !important;
+      border: none !important;
+      background: transparent !important;
+      color: #94a3b8 !important;
+      font-size: 0.875rem !important;
+      font-weight: 600 !important;
+      border-radius: 9px !important;
+      cursor: pointer !important;
+      transition: all 0.2s ease !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      gap: 0.4rem !important;
+    }
+    .auth-tab-btn:hover {
+      color: #f8fafc !important;
+    }
+    .auth-tab-btn.active {
+      background: #10b981 !important;
+      color: #ffffff !important;
+      box-shadow: 0 2px 12px rgba(16, 185, 129, 0.45) !important;
+    }
+    .auth-form {
+      display: flex !important;
+      flex-direction: column !important;
+      gap: 1.15rem !important;
+    }
+    .auth-form .form-group {
+      display: flex !important;
+      flex-direction: column !important;
+      gap: 0.45rem !important;
+      text-align: left !important;
+    }
+    .auth-form .form-group label {
+      font-size: 0.825rem !important;
+      font-weight: 600 !important;
+      color: #cbd5e1 !important;
+      display: block !important;
+    }
+    .auth-input-wrapper {
+      position: relative !important;
+      display: flex !important;
+      align-items: center !important;
+      width: 100% !important;
+      box-sizing: border-box !important;
+    }
+    .auth-input-icon {
+      position: absolute !important;
+      left: 0.95rem !important;
+      top: 50% !important;
+      transform: translateY(-50%) !important;
+      font-size: 1.05rem !important;
+      color: #64748b !important;
+      pointer-events: none !important;
+      z-index: 2 !important;
+    }
+    .auth-input-wrapper input {
+      width: 100% !important;
+      box-sizing: border-box !important;
+      background: rgba(11, 15, 23, 0.8) !important;
+      border: 1px solid rgba(255, 255, 255, 0.14) !important;
+      border-radius: 12px !important;
+      padding: 0.8rem 2.85rem 0.8rem 2.65rem !important;
+      font-size: 0.925rem !important;
+      color: #f8fafc !important;
+      outline: none !important;
+      transition: all 0.2s ease !important;
+      font-family: inherit !important;
+    }
+    .auth-input-wrapper input:focus {
+      border-color: #10b981 !important;
+      box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.25) !important;
+      background: rgba(11, 15, 23, 0.98) !important;
+    }
+    .auth-input-wrapper .btn-toggle-eye {
+      position: absolute !important;
+      right: 0.8rem !important;
+      top: 50% !important;
+      transform: translateY(-50%) !important;
+      background: none !important;
+      border: none !important;
+      cursor: pointer !important;
+      font-size: 1rem !important;
+      color: #94a3b8 !important;
+      padding: 0.3rem !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      z-index: 3 !important;
+      transition: color 0.15s !important;
+    }
+    .auth-input-wrapper .btn-toggle-eye:hover {
+      color: #f8fafc !important;
+    }
+    .auth-forgot-row {
+      display: flex !important;
+      justify-content: flex-end !important;
+      margin-top: -0.25rem !important;
+    }
+    .auth-forgot-link {
+      font-size: 0.775rem !important;
+      color: #34d399 !important;
+      text-decoration: none !important;
+      transition: all 0.15s ease !important;
+    }
+    .auth-forgot-link:hover {
+      color: #6ee7b7 !important;
+      text-decoration: underline !important;
+    }
+    .btn-auth-submit {
+      width: 100% !important;
+      padding: 0.85rem !important;
+      font-size: 0.95rem !important;
+      font-weight: 600 !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      gap: 0.5rem !important;
+      margin-top: 0.35rem !important;
+      border: none !important;
+      border-radius: 12px !important;
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+      color: #ffffff !important;
+      box-shadow: 0 4px 16px rgba(16, 185, 129, 0.35) !important;
+      cursor: pointer !important;
+      transition: all 0.2s ease !important;
+    }
+    .btn-auth-submit:hover:not(:disabled) {
+      transform: translateY(-2px) !important;
+      box-shadow: 0 6px 22px rgba(16, 185, 129, 0.5) !important;
+      background: linear-gradient(135deg, #34d399 0%, #10b981 100%) !important;
+    }
+    .btn-auth-submit:disabled {
+      opacity: 0.65 !important;
+      cursor: not-allowed !important;
+      transform: none !important;
+    }
+    .auth-alert {
+      padding: 0.75rem 1rem !important;
+      border-radius: 10px !important;
+      font-size: 0.85rem !important;
+      line-height: 1.4 !important;
+      display: flex !important;
+      align-items: center !important;
+      gap: 0.5rem !important;
+    }
+    .auth-alert.error {
+      background: rgba(244, 63, 94, 0.14) !important;
+      border: 1px solid rgba(244, 63, 94, 0.35) !important;
+      color: #fda4af !important;
+    }
+    .auth-alert.success {
+      background: rgba(16, 185, 129, 0.14) !important;
+      border: 1px solid rgba(16, 185, 129, 0.35) !important;
+      color: #6ee7b7 !important;
+    }
+    .auth-footer {
+      margin-top: 1.75rem !important;
+      padding-top: 1.25rem !important;
+      border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
+      display: flex !important;
+      justify-content: space-between !important;
+      align-items: center !important;
+      font-size: 0.75rem !important;
+      color: #64748b !important;
+    }
+    .auth-footer-tag {
+      color: #34d399 !important;
+      font-weight: 500 !important;
+    }
+  </style>
   
   <!-- Supabase JS Client Oficial (Autenticação e Sessão) -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
-  <!-- Top App Header -->
-  <header class="app-header">
+  <!-- Top App Header (Exibido apenas quando autenticado) -->
+  <header class="app-header" id="appHeader" style="display: none;">
     <div class="header-container">
       <div class="brand-box">
         <div class="brand-logo">
@@ -95,7 +367,6 @@
         <div class="auth-header">
           <div class="auth-logo">
             <span class="auth-logo-icon">💳</span>
-            <div class="auth-logo-glow"></div>
           </div>
           <h2>Score <span>Cards</span></h2>
           <p>Controle Inteligente de Cartões & Projeção Transacional</p>
@@ -128,6 +399,9 @@
               <input type="password" id="authPassword" placeholder="••••••••" required minlength="6" autocomplete="current-password">
               <button type="button" class="btn-toggle-eye" onclick="toggleVisibilidadeSenhaAuth()" title="Exibir/Ocultar senha">👁️</button>
             </div>
+            <div class="auth-forgot-row" id="authForgotRow">
+              <a href="#" onclick="solicitarRecuperacaoSenha(event)" class="auth-forgot-link">Esqueceu sua senha?</a>
+            </div>
             <span class="field-hint" id="authPasswordHint" style="display: none;">A senha deve ter no mínimo 6 caracteres</span>
           </div>
 
@@ -140,7 +414,7 @@
         </form>
 
         <div class="auth-footer">
-          <span class="auth-footer-tag">☁️ Autenticação Segura via Supabase Auth</span>
+          <span class="auth-footer-tag">☁️ Supabase Auth</span>
           <span class="auth-footer-brand">Score Tech • 2026</span>
         </div>
       </div>
@@ -385,6 +659,6 @@
   <!-- Toast Container -->
   <div class="toast-container" id="toastContainer"></div>
 
-  <script src="script.js"></script>
+  <script src="script.js?v=2.2"></script>
 </body>
 </html>

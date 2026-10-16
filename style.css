@@ -1363,6 +1363,24 @@ body {
   padding: 0.25rem;
 }
 
+.auth-forgot-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: -0.25rem;
+}
+
+.auth-forgot-link {
+  font-size: 0.775rem;
+  color: var(--primary);
+  text-decoration: none;
+  transition: var(--transition-fast);
+}
+
+.auth-forgot-link:hover {
+  color: #34d399;
+  text-decoration: underline;
+}
+
 .auth-alert {
   padding: 0.75rem 1rem;
   border-radius: var(--radius-md);
