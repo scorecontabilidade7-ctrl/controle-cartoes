@@ -6,11 +6,19 @@
 // ============================================================================
 // 1. ESTADO GLOBAL
 // ============================================================================
+const obterStorage = (chave, padrao = '') => {
+  try {
+    return (typeof localStorage !== 'undefined' && localStorage.getItem(chave)) || padrao;
+  } catch (_) {
+    return padrao;
+  }
+};
+
 const ESTADO = {
-  provedorIA: localStorage.getItem('score_provedor_ia') || 'gemini',
+  provedorIA: obterStorage('score_provedor_ia', 'gemini'),
   apiKeys: {
-    gemini: localStorage.getItem('score_api_key_gemini') || '',
-    groq: localStorage.getItem('score_api_key_groq') || ''
+    gemini: obterStorage('score_api_key_gemini', ''),
+    groq: obterStorage('score_api_key_groq', '')
   },
   dadosAtuais: null,
   excelId: null,
