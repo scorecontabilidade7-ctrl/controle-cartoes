@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   
-  <link rel="stylesheet" href="style.css?v=2.6">
+  <link rel="stylesheet" href="style.css?v=2.9">
   
   <!-- Estilos Críticos da Tela de Login (Garantia de renderização perfeita e imune a cache) -->
   <style id="auth-critical-styles">
@@ -300,31 +300,88 @@
   
   <!-- Supabase JS Client Oficial (Autenticação e Sessão) -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Chart.js Oficial para Gráficos Interativos Modernos -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
 
   <!-- Top App Header (Exibido apenas quando autenticado) -->
   <header class="app-header" id="appHeader" style="display: none;">
     <div class="header-container">
-      <div class="brand-box">
-        <div class="brand-logo">
-          <span class="logo-icon">💳</span>
-          <div class="logo-glow"></div>
+      <!-- Barra Principal Superior: Marca à esquerda e Perfil fixado no Canto Superior Direito -->
+      <div class="header-main-bar">
+        <div class="brand-box">
+          <div class="brand-logo">
+            <span class="logo-icon">💳</span>
+            <div class="logo-glow"></div>
+          </div>
+          <div class="brand-text">
+            <h1>Score <span>Cards</span></h1>
+            <p>Projeção Transacional de Faturas • Múltiplos Bancos & Portadores</p>
+          </div>
         </div>
-        <div class="brand-text">
-          <h1>Score <span>Cards</span></h1>
-          <p>Projeção Transacional de Faturas • Múltiplos Bancos & Portadores</p>
+
+        <!-- Perfil de Usuário Autenticado (Fixado estritamente no Canto Superior Direito) -->
+        <div class="user-profile-badge" id="userProfileBadge" style="display: none;">
+          <div class="user-avatar" id="userAvatar">U</div>
+          <div class="user-info-text">
+            <span class="user-email-label" id="userEmailDisplay">usuario@score.com</span>
+            <span class="user-role-label">Score Contabilidade</span>
+          </div>
+          <button type="button" class="btn btn-logout-sm" onclick="fazerLogout()" title="Encerrar sessão no sistema">
+            <span>🚪</span> Sair
+          </button>
         </div>
       </div>
 
-      <!-- Configurações Rápidas de IA, Nuvem e Projeção -->
+      <!-- Barra Inferior de Ferramentas / Controles Rápidos -->
       <div class="header-controls" style="display: none;">
-        <!-- Filtro por Mês das Faturas Salvas -->
-        <div class="control-group">
-          <label for="selectFiltroMesFatura">📅 Filtrar Mês:</label>
-          <select id="selectFiltroMesFatura" onchange="aoFiltrarMesFaturas()" title="Filtrar lista de faturas pelo mês de referência">
-            <option value="">Todos os Meses</option>
-          </select>
+        <!-- Filtro por Mês/Ano das Faturas Salvas (com busca instantânea e agrupamento anual) -->
+        <div class="filter-popover-wrapper" id="filtroMesWrapper">
+          <button type="button" class="btn-filter-trigger" id="btnFiltroMesTrigger" onclick="togglePopoverFiltroMes(event)" title="Filtrar lista de faturas por mês ou ano de referência">
+            <span class="filter-trigger-icon">📅</span>
+            <span class="filter-trigger-label">Filtrar Mês:</span>
+            <span class="filter-trigger-value" id="labelFiltroMesAtivo">Todos os Meses (0)</span>
+            <span class="filter-trigger-chevron">▾</span>
+          </button>
+
+          <!-- Popover Dropdown Interativo -->
+          <div class="filter-popover-panel" id="popoverFiltroMes" style="display: none;" onclick="event.stopPropagation()">
+            <!-- Barra de Pesquisa Instantânea -->
+            <div class="filter-popover-search-wrap">
+              <div class="filter-popover-search">
+                <span class="search-icon">🔍</span>
+                <input 
+                  type="text" 
+                  id="inputBuscaFiltroMes" 
+                  placeholder="Pesquisar mês ou ano... (ex: 2026, JUL)" 
+                  oninput="aoDigitarBuscaFiltroMes(this.value)" 
+                  autocomplete="off"
+                  spellcheck="false"
+                >
+                <button type="button" class="btn-clear-search" id="btnClearBuscaFiltroMes" onclick="limparBuscaFiltroMes()" title="Limpar busca" style="display: none;">&times;</button>
+              </div>
+            </div>
+
+            <!-- Abas Rápidas por Ano -->
+            <div class="filter-year-tabs" id="filterYearTabs">
+              <!-- Renderizado dinamicamente: [Todos] [2026] [2025] ... -->
+            </div>
+
+            <!-- Lista de Meses Agrupados por Ano -->
+            <div class="filter-popover-content" id="listaAgrupadaFiltroMes">
+              <!-- Renderizado dinamicamente -->
+            </div>
+
+            <!-- Rodapé com Totalizador e Reset -->
+            <div class="filter-popover-footer">
+              <span class="filter-footer-total" id="filterFooterTotal">0 faturas salvas</span>
+              <button type="button" class="btn-reset-filter-link" onclick="selecionarFiltroMes('')">Mostrar Todos</button>
+            </div>
+          </div>
+
+          <!-- Select invisível para compatibilidade reversa -->
+          <select id="selectFiltroMesFatura" style="display: none;" onchange="aoFiltrarMesFaturas()"></select>
         </div>
 
         <!-- Seletor de Faturas em Nuvem (Supabase) -->
@@ -341,33 +398,24 @@
           <span>Gastos Ano a Ano</span>
         </button>
 
-        <!-- Seletor de Motor IA -->
-        <div class="control-group">
-          <label for="selectProvedorIA">Motor IA:</label>
-          <select id="selectProvedorIA" onchange="alterarProvedorIA()">
-            <option value="gemini" selected>Google Gemini (Recomendado)</option>
-            <option value="groq">Groq Cloud AI (Ultra-rápido)</option>
-            <option value="local">Modo Local (Offline / Sem Chave)</option>
-          </select>
-        </div>
+        <!-- Caixa Unificada: Configurações do Motor IA e Chave de API -->
+        <div class="ai-config-unified-box" title="Configurações de Inteligência Artificial e Credenciais">
+          <div class="ai-select-part">
+            <label for="selectProvedorIA">🤖 Motor IA:</label>
+            <select id="selectProvedorIA" onchange="alterarProvedorIA()" title="Selecione o motor de Inteligência Artificial para extração e análise">
+              <option value="gemini" selected>Google Gemini (Recomendado)</option>
+              <option value="groq">Groq Cloud AI (Ultra-rápido)</option>
+              <option value="local">Modo Local (Offline / Sem Chave)</option>
+            </select>
+          </div>
 
-        <!-- Botão Configurar Chave de API -->
-        <button type="button" class="btn btn-secondary btn-sm" id="btnConfigApiKey" onclick="abrirModalApiKey()">
-          <span id="apiKeyStatusIcon">🔑</span>
-          <span id="apiKeyStatusText">Configurar API Key</span>
-        </button>
-      </div>
+          <div class="ai-box-divider"></div>
 
-      <!-- Perfil de Usuário Autenticado (Supabase Auth) -->
-      <div class="user-profile-badge" id="userProfileBadge" style="display: none;">
-        <div class="user-avatar" id="userAvatar">U</div>
-        <div class="user-info-text">
-          <span class="user-email-label" id="userEmailDisplay">usuario@score.com</span>
-          <span class="user-role-label">Score Contabilidade</span>
+          <button type="button" class="btn-ai-key-action key-needed" id="btnConfigApiKey" onclick="abrirModalApiKey()" title="Configurar Chave de API do Motor Selecionado">
+            <span id="apiKeyStatusIcon">🔑</span>
+            <span id="apiKeyStatusText">Configurar GEMINI</span>
+          </button>
         </div>
-        <button type="button" class="btn btn-logout-sm" onclick="fazerLogout()" title="Encerrar sessão no sistema">
-          <span>🚪</span> Sair
-        </button>
       </div>
     </div>
   </header>
@@ -521,6 +569,73 @@
             <span class="kpi-label">Compras Parceladas Ativas</span>
             <h2 class="kpi-value" id="kpiTotalParcelas">0</h2>
             <span class="kpi-sub">Transações com saldo a vencer</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Seção de Gráficos e Distribuição por Categoria Contábil (Com Dropdown de Recolher/Expandir) -->
+      <section class="category-analytics-section" id="secaoGastosCategoria">
+        <div class="category-analytics-header" onclick="toggleSecaoGraficoCategorias(event)">
+          <div class="category-analytics-header-left">
+            <div class="category-header-top-row">
+              <span class="category-collapse-icon" id="iconToggleGraficoCategorias">▼</span>
+              <div class="category-badge">📊 INTELIGÊNCIA CONTÁBIL</div>
+              <span class="category-collapse-hint" id="hintToggleGraficoCategorias">Recolher / Expandir painel</span>
+            </div>
+            <h3 class="category-analytics-title">Distribuição de Gastos por Categoria</h3>
+            <p class="category-analytics-sub">Análise visual de desembolso por centro de custo e categoria de consumo.</p>
+          </div>
+          <div class="category-analytics-controls" onclick="event.stopPropagation()">
+            <!-- Alternar Base de Cálculo: Fatura Atual vs Comprometimento Total -->
+            <div class="cat-pill-toggle" title="Base de cálculo dos valores">
+              <button type="button" class="cat-pill-btn active" id="btnCatModoFatura" onclick="alternarModoCalculoCategoria('fatura')">
+                <span>💳</span> Fatura Atual
+              </button>
+              <button type="button" class="cat-pill-btn" id="btnCatModoComprometimento" onclick="alternarModoCalculoCategoria('comprometimento')">
+                <span>📈</span> Comprometimento Total
+              </button>
+            </div>
+
+            <!-- Alternar Tipo de Gráfico: Rosca vs Barras -->
+            <div class="cat-pill-toggle" title="Formato do gráfico">
+              <button type="button" class="cat-pill-btn active" id="btnCatTipoDoughnut" onclick="alternarTipoGraficoCategoria('doughnut')" title="Gráfico de Rosca">
+                <span>🍩</span> Rosca
+              </button>
+              <button type="button" class="cat-pill-btn" id="btnCatTipoBar" onclick="alternarTipoGraficoCategoria('bar')" title="Gráfico de Barras">
+                <span>📊</span> Barras
+              </button>
+            </div>
+
+            <!-- Botão Dropdown / Accordion explícito para Recolher ou Expandir o Gráfico -->
+            <button type="button" class="btn-box-dropdown-toggle" onclick="toggleSecaoGraficoCategorias(event)" title="Recolher ou expandir este gráfico">
+              <span class="dropdown-toggle-arrow" id="btnArrowToggleGrafico">▼</span>
+              <span class="dropdown-toggle-text" id="btnTextToggleGrafico">Recolher</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="category-analytics-grid" id="categoryAnalyticsGrid">
+          <!-- Coluna do Gráfico Interativo -->
+          <div class="category-chart-card">
+            <div class="chart-canvas-wrapper" id="chartCanvasWrapper">
+              <canvas id="graficoCategoriasCanvas"></canvas>
+              <div class="chart-center-kpi" id="chartCenterKpi">
+                <span class="center-kpi-label" id="centerKpiLabel">Total da Fatura</span>
+                <h4 class="center-kpi-value" id="centerKpiValue">R$ 0,00</h4>
+                <span class="center-kpi-sub" id="centerKpiSub">0 categorias</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Coluna do Ranking Detalhado com Barras de Progresso -->
+          <div class="category-ranking-card">
+            <div class="category-ranking-header">
+              <span class="ranking-header-title">Ranking de Desembolso por Categoria</span>
+              <span class="ranking-header-stat" id="rankingHeaderStat">0 categorias</span>
+            </div>
+            <div class="category-bars-list" id="listaBarrasCategorias">
+              <!-- Renderizado dinamicamente via JS -->
+            </div>
           </div>
         </div>
       </section>
@@ -726,6 +841,6 @@
   <!-- Toast Container -->
   <div class="toast-container" id="toastContainer"></div>
 
-  <script src="script.js?v=2.6"></script>
+  <script src="script.js?v=2.9"></script>
 </body>
 </html>

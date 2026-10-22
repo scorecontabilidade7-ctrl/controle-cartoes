@@ -25,6 +25,11 @@ const ESTADO = {
   faturasSalvas: [],
   faturaSelecionadaId: null,
   mesFiltroFaturas: '',
+  filtroMesBusca: '',
+  filtroAbaAno: 'TODOS',
+  categoriaModoCalculo: 'fatura',
+  categoriaTipoGrafico: 'doughnut',
+  categoriaFiltroTabela: null,
   resumoAnual: []
 };
 
@@ -164,6 +169,7 @@ function exibirInterfacePrincipal(autenticado) {
   const mainContent = document.getElementById('appMainContent');
   const appHeader = document.getElementById('appHeader') || document.querySelector('.app-header');
   const headerControls = document.querySelector('.header-controls');
+  const profileBadge = document.getElementById('userProfileBadge');
 
   if (authSection) {
     if (autenticado) {
@@ -182,6 +188,9 @@ function exibirInterfacePrincipal(autenticado) {
   }
   if (headerControls) {
     headerControls.style.setProperty('display', autenticado ? 'flex' : 'none', 'important');
+  }
+  if (profileBadge) {
+    profileBadge.style.setProperty('display', autenticado ? 'flex' : 'none', 'important');
   }
 }
 
@@ -348,60 +357,417 @@ async function carregarListaFaturasNuvem() {
 }
 
 /**
- * Preenche o seletor de filtro por mês com base nas faturas salvas existentes
+ * Extrai o ano de 4 dígitos a partir do mês de referência (ex: "2026-09", "SET/2026", "2025-12")
  */
-function atualizarOpcoesFiltroMes() {
-  const selectFiltroMes = document.getElementById('selectFiltroMesFatura');
-  if (!selectFiltroMes) return;
-
-  const faturas = ESTADO.faturasSalvas || [];
-  
-  // Agrupa os meses distintos abreviados (ex: SET/2026, AGO/2026)
-  const mesesMap = new Map();
-  faturas.forEach(f => {
-    const rotulo = formatarMesAnoLabel(f.mes_referencia);
-    if (!rotulo) return;
-    if (!mesesMap.has(rotulo)) {
-      mesesMap.set(rotulo, { rotulo, mesRef: f.mes_referencia || '', qtd: 1 });
-    } else {
-      mesesMap.get(rotulo).qtd += 1;
-    }
-  });
-
-  // Ordena cronologicamente do mais recente para o mais antigo (ex: SET/2026 antes de AGO/2026)
-  const mesesOrdenados = Array.from(mesesMap.values()).sort((a, b) => {
-    return (b.mesRef || '').localeCompare(a.mesRef || '');
-  });
-
-  const mesAtual = ESTADO.mesFiltroFaturas || '';
-  selectFiltroMes.innerHTML = '';
-
-  const optTodos = document.createElement('option');
-  optTodos.value = '';
-  optTodos.textContent = `Todos os Meses (${faturas.length})`;
-  if (!mesAtual) optTodos.selected = true;
-  selectFiltroMes.appendChild(optTodos);
-
-  mesesOrdenados.forEach(m => {
-    const opt = document.createElement('option');
-    opt.value = m.rotulo;
-    opt.textContent = `${m.rotulo} (${m.qtd})`;
-    if (m.rotulo === mesAtual) {
-      opt.selected = true;
-    }
-    selectFiltroMes.appendChild(opt);
-  });
+function extrairAnoFatura(mesReferencia) {
+  if (!mesReferencia) return 'Outros';
+  const match = String(mesReferencia).match(/\b(20\d\d)\b/) || String(mesReferencia).match(/\d{4}/);
+  return match ? match[0] : 'Outros';
 }
 
 /**
- * Renderiza as opções de faturas no select respeitando o filtro de mês ativo
+ * Controla abertura e fechamento do Popover de Filtro por Mês/Ano
+ */
+function togglePopoverFiltroMes(e) {
+  if (e) e.stopPropagation();
+  const popover = document.getElementById('popoverFiltroMes');
+  const btn = document.getElementById('btnFiltroMesTrigger');
+  if (!popover) return;
+
+  const estaVisivel = popover.style.display !== 'none';
+  if (estaVisivel) {
+    fecharPopoverFiltroMes();
+  } else {
+    popover.style.display = 'block';
+    if (btn) btn.classList.add('active');
+
+    // Reseta campo de busca ao abrir para foco imediato
+    const input = document.getElementById('inputBuscaFiltroMes');
+    if (input) {
+      input.value = '';
+      ESTADO.filtroMesBusca = '';
+      const btnClear = document.getElementById('btnClearBuscaFiltroMes');
+      if (btnClear) btnClear.style.display = 'none';
+    }
+
+    renderizarPopoverFiltroMes();
+
+    if (input) {
+      setTimeout(() => input.focus(), 60);
+    }
+  }
+}
+
+function fecharPopoverFiltroMes() {
+  const popover = document.getElementById('popoverFiltroMes');
+  const btn = document.getElementById('btnFiltroMesTrigger');
+  if (popover) popover.style.display = 'none';
+  if (btn) btn.classList.remove('active');
+}
+
+// Listeners globais para fechar popover ao clicar fora ou apertar Escape
+if (typeof document !== 'undefined') {
+  document.addEventListener('click', e => {
+    const wrapper = document.getElementById('filtroMesWrapper');
+    if (wrapper && !wrapper.contains(e.target)) {
+      fecharPopoverFiltroMes();
+    }
+  });
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+      fecharPopoverFiltroMes();
+    }
+  });
+}
+
+function aoDigitarBuscaFiltroMes(valor) {
+  ESTADO.filtroMesBusca = (valor || '').trim().toLowerCase();
+  const btnClear = document.getElementById('btnClearBuscaFiltroMes');
+  if (btnClear) {
+    btnClear.style.display = ESTADO.filtroMesBusca ? 'block' : 'none';
+  }
+  renderizarListaAgrupadaPopover();
+}
+
+function limparBuscaFiltroMes() {
+  const input = document.getElementById('inputBuscaFiltroMes');
+  if (input) input.value = '';
+  ESTADO.filtroMesBusca = '';
+  const btnClear = document.getElementById('btnClearBuscaFiltroMes');
+  if (btnClear) btnClear.style.display = 'none';
+  renderizarListaAgrupadaPopover();
+  if (input) input.focus();
+}
+
+function selecionarAbaAnoFiltro(ano) {
+  ESTADO.filtroAbaAno = ano;
+  renderizarAbasAnoPopover();
+  renderizarListaAgrupadaPopover();
+}
+
+function selecionarFiltroMes(rotuloMes) {
+  ESTADO.mesFiltroFaturas = rotuloMes || '';
+  fecharPopoverFiltroMes();
+  atualizarRotuloBotaoFiltro();
+  renderizarOpcoesFaturasNuvem();
+
+  const selectOculto = document.getElementById('selectFiltroMesFatura');
+  if (selectOculto) selectOculto.value = rotuloMes || '';
+
+  if (rotuloMes) {
+    showToast(`Filtro aplicado: ${rotuloMes}`, 'info');
+  } else {
+    showToast('Exibindo todos os meses e anos.', 'info');
+  }
+}
+
+function selecionarFiltroAno(ano) {
+  if (!ano) {
+    selecionarFiltroMes('');
+    return;
+  }
+  ESTADO.mesFiltroFaturas = `ANO:${ano}`;
+  fecharPopoverFiltroMes();
+  atualizarRotuloBotaoFiltro();
+  renderizarOpcoesFaturasNuvem();
+
+  const selectOculto = document.getElementById('selectFiltroMesFatura');
+  if (selectOculto) selectOculto.value = `ANO:${ano}`;
+
+  showToast(`Filtro aplicado: Faturas do Ano ${ano}`, 'info');
+}
+
+function atualizarRotuloBotaoFiltro() {
+  const labelEl = document.getElementById('labelFiltroMesAtivo');
+  if (!labelEl) return;
+
+  const faturas = ESTADO.faturasSalvas || [];
+  const filtro = ESTADO.mesFiltroFaturas || '';
+
+  if (!filtro) {
+    labelEl.textContent = `Todos os Meses (${faturas.length})`;
+    labelEl.classList.remove('has-filter');
+    return;
+  }
+
+  if (filtro.startsWith('ANO:')) {
+    const ano = filtro.replace('ANO:', '');
+    const qtd = faturas.filter(f => extrairAnoFatura(f.mes_referencia) === ano).length;
+    labelEl.textContent = `Ano ${ano} (${qtd})`;
+    labelEl.classList.add('has-filter');
+    return;
+  }
+
+  const qtd = faturas.filter(f => formatarMesAnoLabel(f.mes_referencia) === filtro).length;
+  labelEl.textContent = `${filtro} (${qtd})`;
+  labelEl.classList.add('has-filter');
+}
+
+const NOMES_MESES_EXTENSO = [
+  { code: 'JAN', aliases: ['jan', 'janeiro'] },
+  { code: 'FEV', aliases: ['fev', 'fevereiro'] },
+  { code: 'MAR', aliases: ['mar', 'marco', 'março'] },
+  { code: 'ABR', aliases: ['abr', 'abril'] },
+  { code: 'MAI', aliases: ['mai', 'maio'] },
+  { code: 'JUN', aliases: ['jun', 'junho'] },
+  { code: 'JUL', aliases: ['jul', 'julho'] },
+  { code: 'AGO', aliases: ['ago', 'agosto'] },
+  { code: 'SET', aliases: ['set', 'setembro'] },
+  { code: 'OUT', aliases: ['out', 'outubro'] },
+  { code: 'NOV', aliases: ['nov', 'novembro'] },
+  { code: 'DEZ', aliases: ['dez', 'dezembro'] }
+];
+
+function agruparFaturasPorAnoEMes() {
+  const faturas = ESTADO.faturasSalvas || [];
+  const anosMap = new Map();
+
+  faturas.forEach(f => {
+    const rotulo = formatarMesAnoLabel(f.mes_referencia);
+    if (!rotulo) return;
+    const ano = extrairAnoFatura(f.mes_referencia);
+
+    if (!anosMap.has(ano)) {
+      anosMap.set(ano, {
+        ano,
+        totalFaturas: 0,
+        mesesMap: new Map()
+      });
+    }
+
+    const anoObj = anosMap.get(ano);
+    anoObj.totalFaturas += 1;
+
+    if (!anoObj.mesesMap.has(rotulo)) {
+      anoObj.mesesMap.set(rotulo, {
+        rotulo,
+        mesRef: f.mes_referencia || '',
+        ano,
+        qtd: 1,
+        bancos: new Set([f.banco].filter(Boolean))
+      });
+    } else {
+      const mesItem = anoObj.mesesMap.get(rotulo);
+      mesItem.qtd += 1;
+      if (f.banco) mesItem.bancos.add(f.banco);
+    }
+  });
+
+  // Ordena anos decrescentes
+  const anosOrdenados = Array.from(anosMap.values()).sort((a, b) => {
+    return b.ano.localeCompare(a.ano);
+  });
+
+  // Ordena meses de cada ano cronologicamente decrescente
+  anosOrdenados.forEach(anoObj => {
+    anoObj.meses = Array.from(anoObj.mesesMap.values()).sort((a, b) => {
+      return (b.mesRef || '').localeCompare(a.mesRef || '');
+    });
+  });
+
+  return anosOrdenados;
+}
+
+function renderizarPopoverFiltroMes() {
+  renderizarAbasAnoPopover();
+  renderizarListaAgrupadaPopover();
+}
+
+function renderizarAbasAnoPopover() {
+  const tabsContainer = document.getElementById('filterYearTabs');
+  if (!tabsContainer) return;
+
+  const gruposAnos = agruparFaturasPorAnoEMes();
+  const faturas = ESTADO.faturasSalvas || [];
+  const abaAtiva = ESTADO.filtroAbaAno || 'TODOS';
+
+  if (gruposAnos.length <= 1) {
+    tabsContainer.style.display = 'none';
+    return;
+  }
+
+  tabsContainer.style.display = 'flex';
+  tabsContainer.innerHTML = '';
+
+  // Aba "Todos"
+  const btnTodos = document.createElement('button');
+  btnTodos.type = 'button';
+  btnTodos.className = `filter-year-tab-btn ${abaAtiva === 'TODOS' ? 'active' : ''}`;
+  btnTodos.innerHTML = `Todos (${faturas.length})`;
+  btnTodos.onclick = () => selecionarAbaAnoFiltro('TODOS');
+  tabsContainer.appendChild(btnTodos);
+
+  gruposAnos.forEach(g => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = `filter-year-tab-btn ${abaAtiva === g.ano ? 'active' : ''}`;
+    btn.innerHTML = `${g.ano} (${g.totalFaturas})`;
+    btn.onclick = () => selecionarAbaAnoFiltro(g.ano);
+    tabsContainer.appendChild(btn);
+  });
+}
+
+function renderizarListaAgrupadaPopover() {
+  const container = document.getElementById('listaAgrupadaFiltroMes');
+  if (!container) return;
+
+  const faturas = ESTADO.faturasSalvas || [];
+  if (faturas.length === 0) {
+    container.innerHTML = `
+      <div class="filter-search-empty">
+        <span class="filter-search-empty-icon">☁️</span>
+        <p>Nenhuma fatura salva encontrada na nuvem.</p>
+      </div>
+    `;
+    return;
+  }
+
+  const gruposAnos = agruparFaturasPorAnoEMes();
+  const busca = (ESTADO.filtroMesBusca || '').trim().toLowerCase();
+  const abaAtiva = ESTADO.filtroAbaAno || 'TODOS';
+  const filtroAtivo = ESTADO.mesFiltroFaturas || '';
+
+  let html = '';
+  if (!busca || 'todos os meses'.includes(busca) || 'todos'.includes(busca)) {
+    const isTodosSelected = !filtroAtivo;
+    html += `
+      <div class="filter-item-global ${isTodosSelected ? 'selected' : ''}" onclick="selecionarFiltroMes('')" title="Visualizar todas as faturas">
+        <div class="filter-item-global-left">
+          <span style="font-size: 1rem;">🌐</span>
+          <span class="filter-item-global-title">Todos os Meses e Anos</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 0.4rem;">
+          <span class="filter-item-badge">${faturas.length} faturas</span>
+          ${isTodosSelected ? '<span style="color: #34d399; font-weight: bold;">✓</span>' : ''}
+        </div>
+      </div>
+    `;
+  }
+
+  let totalMesesExibidos = 0;
+
+  gruposAnos.forEach(g => {
+    if (!busca && abaAtiva !== 'TODOS' && abaAtiva !== g.ano) {
+      return;
+    }
+
+    const mesesFiltrados = g.meses.filter(m => {
+      if (!busca) return true;
+      const rotuloNorm = removerAcentos(m.rotulo).toLowerCase();
+      if (rotuloNorm.includes(busca)) return true;
+      if (m.ano.includes(busca)) return true;
+
+      const mesCode = m.rotulo.split('/')[0] || '';
+      const def = NOMES_MESES_EXTENSO.find(item => item.code === mesCode);
+      if (def && def.aliases.some(alias => alias.includes(busca) || busca.includes(alias))) {
+        return true;
+      }
+
+      for (const banco of m.bancos) {
+        if (removerAcentos(banco).toLowerCase().includes(busca)) return true;
+      }
+
+      return false;
+    });
+
+    if (mesesFiltrados.length === 0) return;
+    totalMesesExibidos += mesesFiltrados.length;
+
+    const isAnoAtivo = filtroAtivo === `ANO:${g.ano}`;
+
+    html += `
+      <div class="filter-year-section">
+        <div class="filter-year-header">
+          <div class="filter-year-title">
+            <span>📁</span>
+            <span>Ano ${g.ano}</span>
+            <span class="filter-year-count">(${g.totalFaturas} ${g.totalFaturas === 1 ? 'fatura' : 'faturas'})</span>
+          </div>
+          <button 
+            type="button" 
+            class="btn-filter-year-all ${isAnoAtivo ? 'active' : ''}" 
+            onclick="selecionarFiltroAno('${g.ano}')" 
+            title="Filtrar todas as faturas do ano ${g.ano}"
+          >
+            ${isAnoAtivo ? '✓ Ano Ativo' : 'Filtrar Ano'}
+          </button>
+        </div>
+
+        <div class="filter-months-grid">
+          ${mesesFiltrados.map(m => {
+            const isMesSelecionado = filtroAtivo === m.rotulo;
+            return `
+              <button 
+                type="button" 
+                class="filter-month-card ${isMesSelecionado ? 'selected' : ''}" 
+                onclick="selecionarFiltroMes('${escapeJsString(m.rotulo)}')"
+                title="Filtrar por ${m.rotulo}"
+              >
+                <div class="month-card-left">
+                  ${isMesSelecionado ? '<span class="month-card-check">✓</span>' : ''}
+                  <span>${m.rotulo}</span>
+                </div>
+                <span class="month-faturas-badge">${m.qtd} fat.</span>
+              </button>
+            `;
+          }).join('')}
+        </div>
+      </div>
+    `;
+  });
+
+  if (busca && totalMesesExibidos === 0) {
+    html = `
+      <div class="filter-search-empty">
+        <span class="filter-search-empty-icon">🔍</span>
+        <p>Nenhum mês ou ano encontrado para "<strong>${escapeJsString(busca)}</strong>"</p>
+        <button type="button" class="btn-reset-filter-link" onclick="limparBuscaFiltroMes()" style="margin-top: 0.5rem;">Limpar pesquisa</button>
+      </div>
+    `;
+  }
+
+  container.innerHTML = html;
+}
+
+/**
+ * Preenche o seletor de filtro por mês com base nas faturas salvas existentes
+ */
+function atualizarOpcoesFiltroMes() {
+  atualizarRotuloBotaoFiltro();
+
+  const totalFooter = document.getElementById('filterFooterTotal');
+  const faturas = ESTADO.faturasSalvas || [];
+  if (totalFooter) {
+    const anosDistintos = new Set(faturas.map(f => extrairAnoFatura(f.mes_referencia)));
+    totalFooter.textContent = `${faturas.length} faturas • ${anosDistintos.size} ${anosDistintos.size === 1 ? 'ano' : 'anos'}`;
+  }
+
+  const popover = document.getElementById('popoverFiltroMes');
+  if (popover && popover.style.display !== 'none') {
+    renderizarPopoverFiltroMes();
+  }
+
+  const selectFiltroMes = document.getElementById('selectFiltroMesFatura');
+  if (selectFiltroMes) {
+    selectFiltroMes.innerHTML = '';
+    const optTodos = document.createElement('option');
+    optTodos.value = '';
+    optTodos.textContent = `Todos os Meses (${faturas.length})`;
+    if (!ESTADO.mesFiltroFaturas) optTodos.selected = true;
+    selectFiltroMes.appendChild(optTodos);
+  }
+}
+
+/**
+ * Renderiza as opções de faturas no select respeitando o filtro de mês/ano ativo e separando de ano em ano
  */
 function renderizarOpcoesFaturasNuvem() {
   const select = document.getElementById('selectFaturaNuvem');
   if (!select) return;
 
   const faturas = ESTADO.faturasSalvas || [];
-  const mesFiltro = ESTADO.mesFiltroFaturas || '';
+  const filtro = ESTADO.mesFiltroFaturas || '';
 
   select.innerHTML = '';
 
@@ -410,54 +776,85 @@ function renderizarOpcoesFaturasNuvem() {
     return;
   }
 
-  // Filtra as faturas caso um mês específico esteja selecionado
-  const faturasFiltradas = mesFiltro
-    ? faturas.filter(f => formatarMesAnoLabel(f.mes_referencia) === mesFiltro)
-    : faturas;
+  // Filtra as faturas caso um mês específico ou ano esteja selecionado
+  let faturasFiltradas = faturas;
+  let tituloPadrao = `☁️ Faturas Salvas (${faturas.length})`;
+
+  if (filtro.startsWith('ANO:')) {
+    const ano = filtro.replace('ANO:', '');
+    faturasFiltradas = faturas.filter(f => extrairAnoFatura(f.mes_referencia) === ano);
+    tituloPadrao = `☁️ Faturas do Ano ${ano} (${faturasFiltradas.length})`;
+  } else if (filtro) {
+    faturasFiltradas = faturas.filter(f => formatarMesAnoLabel(f.mes_referencia) === filtro);
+    tituloPadrao = `☁️ Faturas ${filtro} (${faturasFiltradas.length})`;
+  }
 
   const defaultOpt = document.createElement('option');
   defaultOpt.value = '';
-  defaultOpt.textContent = mesFiltro
-    ? `☁️ Faturas ${mesFiltro} (${faturasFiltradas.length})`
-    : `☁️ Faturas Salvas (${faturas.length})`;
+  defaultOpt.textContent = tituloPadrao;
   select.appendChild(defaultOpt);
 
   if (faturasFiltradas.length === 0) {
     const optVazio = document.createElement('option');
     optVazio.value = '';
-    optVazio.textContent = `Nenhuma fatura em ${mesFiltro}`;
+    optVazio.textContent = `Nenhuma fatura encontrada`;
     optVazio.disabled = true;
     select.appendChild(optVazio);
     return;
   }
 
+  // Separa as faturas de ano em ano usando optgroups
+  const faturasPorAno = new Map();
   faturasFiltradas.forEach(f => {
-    const opt = document.createElement('option');
-    opt.value = f.id;
-    const totalFmt = formatadorMoeda.format(f.total_fatura || 0);
-    opt.textContent = `${removerAcentos(f.banco)} • ${formatarMesAnoLabel(f.mes_referencia)} (${totalFmt})`;
-    if (ESTADO.faturaSelecionadaId === f.id) {
-      opt.selected = true;
+    const ano = extrairAnoFatura(f.mes_referencia);
+    if (!faturasPorAno.has(ano)) {
+      faturasPorAno.set(ano, []);
     }
-    select.appendChild(opt);
+    faturasPorAno.get(ano).push(f);
   });
+
+  const anosOrdenados = Array.from(faturasPorAno.keys()).sort((a, b) => b.localeCompare(a));
+
+  anosOrdenados.forEach(ano => {
+    const listaDoAno = faturasPorAno.get(ano);
+    const precisaOptgroup = anosOrdenados.length > 1 || !filtro;
+    const parentContainer = precisaOptgroup ? document.createElement('optgroup') : select;
+
+    if (precisaOptgroup && parentContainer instanceof HTMLOptGroupElement) {
+      parentContainer.label = `── 📅 Ano ${ano} (${listaDoAno.length} ${listaDoAno.length === 1 ? 'fatura' : 'faturas'}) ──`;
+    }
+
+    listaDoAno.forEach(f => {
+      const opt = document.createElement('option');
+      opt.value = f.id;
+      const totalFmt = formatadorMoeda.format(f.total_fatura || 0);
+      opt.textContent = `${removerAcentos(f.banco)} • ${formatarMesAnoLabel(f.mes_referencia)} (${totalFmt})`;
+      if (ESTADO.faturaSelecionadaId === f.id) {
+        opt.selected = true;
+      }
+      parentContainer.appendChild(opt);
+    });
+
+    if (precisaOptgroup) {
+      select.appendChild(parentContainer);
+    }
+  });
+
+  // Se a fatura atualmente carregada na tela não pertencer ao filtro ativo, reseta a seleção no dropdown
+  if (ESTADO.faturaSelecionadaId && !faturasFiltradas.some(f => f.id === ESTADO.faturaSelecionadaId)) {
+    select.value = '';
+  }
 }
 
 /**
- * Evento disparado quando o usuário escolhe um mês no filtro
+ * Evento disparado para sincronização de filtro de mês
  */
 function aoFiltrarMesFaturas() {
   const selectFiltroMes = document.getElementById('selectFiltroMesFatura');
   const mesEscolhido = selectFiltroMes ? selectFiltroMes.value : '';
   ESTADO.mesFiltroFaturas = mesEscolhido;
-
+  atualizarRotuloBotaoFiltro();
   renderizarOpcoesFaturasNuvem();
-
-  // Se a fatura atualmente carregada na tela não pertencer a este mês filtrado, reseta a seleção visual no dropdown
-  const selectFatura = document.getElementById('selectFaturaNuvem');
-  if (selectFatura && !Array.from(selectFatura.options).some(o => o.value === ESTADO.faturaSelecionadaId)) {
-    selectFatura.value = '';
-  }
 }
 
 async function aoSelecionarFaturaNuvem() {
@@ -590,7 +987,7 @@ function renderizarCardsResumoAnual(listaAnos) {
     `).join('');
 
     return `
-      <div class="anual-card">
+      <div class="anual-card" onclick="selecionarFiltroAno('${item.ano}')" style="cursor: pointer;" title="Clique para filtrar faturas do ano ${item.ano}">
         <div class="anual-card-top">
           <div class="anual-card-year">
             <span>📅</span> ${item.ano}
@@ -910,6 +1307,9 @@ function renderizarResultados(dados) {
 
   // 7. Tabela de Detalhes Completa
   renderizarTabelaDetalhes(proj.detalhes_parcelas);
+
+  // 8. Gráfico e Ranking Estratégico por Categoria Contábil
+  renderizarGraficoCategorias(proj.detalhes_parcelas);
 }
 
 function alternarSubLinhas(idx) {
@@ -933,8 +1333,25 @@ function renderizarTabelaDetalhes(itens) {
   const tbody = document.getElementById('detailsTableBody');
   if (!tbody) return;
 
-  tbody.innerHTML = itens.map(item => `
-    <tr>
+  const filtroCat = ESTADO.categoriaFiltroTabela;
+  const itensExibir = filtroCat
+    ? itens.filter(it => removerAcentos(it.categoria).toLowerCase() === removerAcentos(filtroCat).toLowerCase())
+    : itens;
+
+  if (itensExibir.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="10" style="text-align: center; padding: 2rem; color: var(--text-dim);">
+          Nenhuma transação encontrada para a categoria <strong>${removerAcentos(filtroCat)}</strong>.
+          <br><button type="button" class="btn btn-secondary btn-sm" onclick="filtrarTabelaPorCategoria(null)" style="margin-top: 0.65rem;">Remover Filtro de Categoria</button>
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  tbody.innerHTML = itensExibir.map(item => `
+    <tr class="${filtroCat ? 'highlight-filtered-row' : ''}">
       <td><strong>${removerAcentos(item.banco)}</strong></td>
       <td>${removerAcentos(item.cartao)}</td>
       <td><strong>${removerAcentos(item.estabelecimento)}</strong></td>
@@ -952,6 +1369,428 @@ function renderizarTabelaDetalhes(itens) {
 function toggleSecaoDetalhes() {
   const section = document.querySelector('.details-section');
   if (section) section.classList.toggle('collapsed');
+}
+
+// ============================================================================
+// 8. ANÁLISE E GRÁFICOS POR CATEGORIA CONTÁBIL
+// ============================================================================
+const MAPA_CORES_CATEGORIAS = {
+  'Supermercado & Alimentos': { cor: '#10b981', corGlow: 'rgba(16, 185, 129, 0.4)', icone: '🛒' },
+  'Restaurantes & Delivery': { cor: '#f59e0b', corGlow: 'rgba(245, 158, 11, 0.4)', icone: '🍽️' },
+  'Farmacia & Saude': { cor: '#ef4444', corGlow: 'rgba(239, 68, 68, 0.4)', icone: '🏥' },
+  'Transporte & Combustivel': { cor: '#06b6d4', corGlow: 'rgba(6, 182, 212, 0.4)', icone: '🚗' },
+  'Viagens & Lazer': { cor: '#8b5cf6', corGlow: 'rgba(139, 92, 246, 0.4)', icone: '✈️' },
+  'Vestuario & Moda': { cor: '#ec4899', corGlow: 'rgba(236, 72, 153, 0.4)', icone: '👗' },
+  'Eletronicos & Informatica': { cor: '#3b82f6', corGlow: 'rgba(59, 130, 246, 0.4)', icone: '💻' },
+  'Assinaturas & Streaming': { cor: '#a855f7', corGlow: 'rgba(168, 85, 247, 0.4)', icone: '📺' },
+  'Servicos & Taxas': { cor: '#64748b', corGlow: 'rgba(100, 116, 139, 0.4)', icone: '⚡' },
+  'Outros Lancamentos': { cor: '#94a3b8', corGlow: 'rgba(148, 163, 184, 0.4)', icone: '📦' }
+};
+
+const PALETA_CORES_EXTRAS = [
+  '#0ea5e9', '#14b8a6', '#f97316', '#6366f1', '#84cc16', 
+  '#d946ef', '#eab308', '#22c55e', '#06b6d4', '#f43f5e'
+];
+
+function obterInfoVisualCategoria(nomeCat, index = 0) {
+  const norm = removerAcentos(nomeCat).toLowerCase();
+  for (const [chave, info] of Object.entries(MAPA_CORES_CATEGORIAS)) {
+    if (removerAcentos(chave).toLowerCase() === norm) {
+      return info;
+    }
+  }
+  const cor = PALETA_CORES_EXTRAS[index % PALETA_CORES_EXTRAS.length];
+  return {
+    cor,
+    corGlow: `${cor}66`,
+    icone: '🏷️'
+  };
+}
+
+let _instanciaGraficoCategorias = null;
+
+function destruirGraficoCategorias() {
+  if (_instanciaGraficoCategorias) {
+    try {
+      _instanciaGraficoCategorias.destroy();
+    } catch (_) {}
+    _instanciaGraficoCategorias = null;
+  }
+}
+
+function calcularTotaisPorCategoria(itens) {
+  const modo = ESTADO.categoriaModoCalculo || 'fatura';
+  const mapa = new Map();
+  let totalGeral = 0;
+  let qtdItensConsiderados = 0;
+
+  (itens || []).forEach(item => {
+    const cat = removerAcentos(item.categoria) || 'Outros Lancamentos';
+    
+    let val = 0;
+    if (modo === 'comprometimento') {
+      const saldoRest = parseFloat(item.saldo_restante);
+      val = (!isNaN(saldoRest) && saldoRest > 0) ? saldoRest : 0;
+
+      // Se a compra já foi quitada nesta fatura (ex: 3/3, saldo restante = 0),
+      // ela não possui parcelas futuras e não gera comprometimento futuro
+      if (val <= 0) return;
+    } else {
+      val = parseFloat(item.valor_parcela) || 0;
+    }
+
+    if (!mapa.has(cat)) {
+      mapa.set(cat, {
+        categoria: cat,
+        total: 0,
+        qtd: 0,
+        estabelecimentos: new Set()
+      });
+    }
+    const reg = mapa.get(cat);
+    reg.total += val;
+    reg.qtd += 1;
+    qtdItensConsiderados += 1;
+    if (item.estabelecimento) reg.estabelecimentos.add(removerAcentos(item.estabelecimento));
+    totalGeral += val;
+  });
+
+  const lista = Array.from(mapa.values()).sort((a, b) => b.total - a.total);
+  lista.forEach(reg => {
+    reg.percentual = totalGeral > 0 ? (reg.total / totalGeral) * 100 : 0;
+  });
+
+  return { lista, totalGeral, qtdItensConsiderados };
+}
+
+function renderizarGraficoCategorias(itens) {
+  const secao = document.getElementById('secaoGastosCategoria');
+  if (!secao) return;
+
+  if (!itens || itens.length === 0) {
+    secao.style.display = 'none';
+    return;
+  }
+  secao.style.display = 'block';
+
+  const modo = ESTADO.categoriaModoCalculo || 'fatura';
+  const tipoGrafico = ESTADO.categoriaTipoGrafico || 'doughnut';
+  const { lista, totalGeral, qtdItensConsiderados } = calcularTotaisPorCategoria(itens);
+
+  // 1. Atualiza Indicadores Centrais e Textos
+  const labelKpi = document.getElementById('centerKpiLabel');
+  const valKpi = document.getElementById('centerKpiValue');
+  const subKpi = document.getElementById('centerKpiSub');
+  const statRank = document.getElementById('rankingHeaderStat');
+
+  if (labelKpi) {
+    labelKpi.textContent = modo === 'comprometimento' ? 'Comprometimento' : 'Fatura Atual';
+  }
+  if (valKpi) {
+    valKpi.textContent = formatadorMoeda.format(totalGeral);
+  }
+  if (subKpi) {
+    subKpi.textContent = `${lista.length} ${lista.length === 1 ? 'categoria' : 'categorias'}`;
+  }
+  if (statRank) {
+    if (modo === 'comprometimento') {
+      statRank.textContent = `${qtdItensConsiderados} compras com parcelas a vencer`;
+    } else {
+      statRank.textContent = `${itens.length} compras na fatura`;
+    }
+  }
+
+  // 2. Renderiza lista de barras no ranking lateral
+  renderizarListaBarrasCategorias(lista, totalGeral);
+
+  // 3. Renderiza Gráfico via Chart.js
+  const canvas = document.getElementById('graficoCategoriasCanvas');
+  const centerKpi = document.getElementById('chartCenterKpi');
+
+  if (!canvas) return;
+
+  destruirGraficoCategorias();
+
+  if (typeof Chart === 'undefined') {
+    if (centerKpi) centerKpi.style.display = 'none';
+    return;
+  }
+
+  const labels = lista.map(item => item.categoria);
+  const dataVals = lista.map(item => item.total);
+  const backgroundColors = lista.map((item, idx) => obterInfoVisualCategoria(item.categoria, idx).cor);
+
+  if (centerKpi) {
+    centerKpi.style.display = tipoGrafico === 'doughnut' ? 'flex' : 'none';
+  }
+
+  const ctx = canvas.getContext('2d');
+
+  if (tipoGrafico === 'doughnut') {
+    _instanciaGraficoCategorias = new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels: labels,
+        datasets: [{
+          data: dataVals,
+          backgroundColor: backgroundColors,
+          borderColor: '#111827',
+          borderWidth: 3,
+          hoverBorderColor: '#ffffff',
+          hoverBorderWidth: 2,
+          hoverOffset: 6
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '72%',
+        plugins: {
+          legend: {
+            display: false
+          },
+          tooltip: {
+            backgroundColor: 'rgba(17, 24, 39, 0.95)',
+            titleColor: '#f8fafc',
+            bodyColor: '#34d399',
+            borderColor: 'rgba(255, 255, 255, 0.12)',
+            borderWidth: 1,
+            padding: 12,
+            boxPadding: 6,
+            usePointStyle: true,
+            callbacks: {
+              label: function(context) {
+                const val = context.raw || 0;
+                const pct = totalGeral > 0 ? ((val / totalGeral) * 100).toFixed(1) : '0.0';
+                return ` ${formatadorMoeda.format(val)} (${pct}%)`;
+              }
+            }
+          }
+        },
+        onClick: (event, elements) => {
+          if (elements && elements.length > 0) {
+            const index = elements[0].index;
+            const cat = labels[index];
+            filtrarTabelaPorCategoria(cat);
+          }
+        }
+      }
+    });
+  } else {
+    // Modo Barras Horizontais
+    _instanciaGraficoCategorias = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: labels.map(l => l.length > 18 ? l.substring(0, 16) + '...' : l),
+        datasets: [{
+          data: dataVals,
+          backgroundColor: backgroundColors,
+          borderRadius: 6,
+          borderSkipped: false
+        }]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: 'rgba(17, 24, 39, 0.95)',
+            titleColor: '#f8fafc',
+            bodyColor: '#34d399',
+            borderColor: 'rgba(255, 255, 255, 0.12)',
+            borderWidth: 1,
+            padding: 10,
+            callbacks: {
+              title: (items) => labels[items[0].dataIndex],
+              label: (context) => {
+                const val = context.raw || 0;
+                const pct = totalGeral > 0 ? ((val / totalGeral) * 100).toFixed(1) : '0.0';
+                return ` ${formatadorMoeda.format(val)} (${pct}%)`;
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            display: false,
+            grid: { display: false }
+          },
+          y: {
+            ticks: {
+              color: '#94a3b8',
+              font: { size: 10, weight: 'bold' }
+            },
+            grid: { color: 'rgba(255, 255, 255, 0.05)' }
+          }
+        },
+        onClick: (event, elements) => {
+          if (elements && elements.length > 0) {
+            const index = elements[0].index;
+            const cat = labels[index];
+            filtrarTabelaPorCategoria(cat);
+          }
+        }
+      }
+    });
+  }
+}
+
+function renderizarListaBarrasCategorias(lista, totalGeral) {
+  const container = document.getElementById('listaBarrasCategorias');
+  if (!container) return;
+
+  if (!lista || lista.length === 0) {
+    container.innerHTML = `
+      <div class="category-analytics-empty">
+        <span>📊</span>
+        <p>Nenhuma compra categorizada encontrada nesta fatura.</p>
+      </div>
+    `;
+    return;
+  }
+
+  const filtroAtivo = ESTADO.categoriaFiltroTabela;
+
+  container.innerHTML = lista.map((item, idx) => {
+    const info = obterInfoVisualCategoria(item.categoria, idx);
+    const pct = item.percentual.toFixed(1);
+    const isFiltered = filtroAtivo && removerAcentos(filtroAtivo).toLowerCase() === removerAcentos(item.categoria).toLowerCase();
+
+    return `
+      <div 
+        class="cat-bar-item ${isFiltered ? 'filtered-active' : ''}" 
+        onclick="filtrarTabelaPorCategoria('${escapeJsString(item.categoria)}')"
+        title="Clique para filtrar apenas compras de ${item.categoria} na tabela detalhada"
+      >
+        <div class="cat-bar-header">
+          <div class="cat-bar-title">
+            <span class="cat-bar-icon">${info.icone}</span>
+            <span>${removerAcentos(item.categoria)}</span>
+          </div>
+          <div class="cat-bar-values">
+            <span class="cat-bar-val">${formatadorMoeda.format(item.total)}</span>
+            <span class="cat-bar-pct" style="color: ${info.cor}; background: ${info.corGlow};">${pct}%</span>
+          </div>
+        </div>
+
+        <div class="cat-bar-track">
+          <div class="cat-bar-fill" style="width: ${pct}%; background: linear-gradient(90deg, ${info.cor}, ${info.corGlow});"></div>
+        </div>
+
+        <div class="cat-bar-sub">
+          <span>${item.qtd} ${item.qtd === 1 ? 'compra' : 'compras'} parceladas</span>
+          <span class="cat-bar-hint">${isFiltered ? '✓ Filtro Ativo (Clique para remover)' : 'Ver transações →'}</span>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function toggleSecaoGraficoCategorias(event) {
+  if (event) {
+    event.stopPropagation();
+  }
+  const secao = document.getElementById('secaoGastosCategoria');
+  if (!secao) return;
+
+  const estaColapsado = secao.classList.toggle('collapsed');
+  const iconHeader = document.getElementById('iconToggleGraficoCategorias');
+  const arrowBtn = document.getElementById('btnArrowToggleGrafico');
+  const textBtn = document.getElementById('btnTextToggleGrafico');
+  const hintEl = document.getElementById('hintToggleGraficoCategorias');
+
+  if (iconHeader) iconHeader.textContent = estaColapsado ? '▶' : '▼';
+  if (arrowBtn) arrowBtn.textContent = estaColapsado ? '▶' : '▼';
+  if (textBtn) textBtn.textContent = estaColapsado ? 'Expandir' : 'Recolher';
+  if (hintEl) hintEl.textContent = estaColapsado ? 'Clique para expandir o gráfico' : 'Recolher / Expandir painel';
+
+  // Se reabriu, ajusta o canvas do Chart.js para garantir proporções perfeitas
+  if (!estaColapsado && _instanciaGraficoCategorias) {
+    setTimeout(() => {
+      try {
+        _instanciaGraficoCategorias.resize();
+        _instanciaGraficoCategorias.update();
+      } catch (e) {
+        console.warn('Erro ao atualizar gráfico:', e);
+      }
+    }, 60);
+  }
+}
+
+function alternarModoCalculoCategoria(modo) {
+  if (ESTADO.categoriaModoCalculo === modo) return;
+  ESTADO.categoriaModoCalculo = modo;
+
+  const btnFat = document.getElementById('btnCatModoFatura');
+  const btnComp = document.getElementById('btnCatModoComprometimento');
+
+  if (btnFat) btnFat.classList.toggle('active', modo === 'fatura');
+  if (btnComp) btnComp.classList.toggle('active', modo === 'comprometimento');
+
+  // Se estiver recolhido, expande automaticamente para exibir a nova visualização
+  const secao = document.getElementById('secaoGastosCategoria');
+  if (secao && secao.classList.contains('collapsed')) {
+    toggleSecaoGraficoCategorias();
+  }
+
+  if (ESTADO.dadosAtuais && ESTADO.dadosAtuais.projecao && ESTADO.dadosAtuais.projecao.detalhes_parcelas) {
+    renderizarGraficoCategorias(ESTADO.dadosAtuais.projecao.detalhes_parcelas);
+  }
+}
+
+function alternarTipoGraficoCategoria(tipo) {
+  if (ESTADO.categoriaTipoGrafico === tipo) return;
+  ESTADO.categoriaTipoGrafico = tipo;
+
+  const btnDoughnut = document.getElementById('btnCatTipoDoughnut');
+  const btnBar = document.getElementById('btnCatTipoBar');
+
+  if (btnDoughnut) btnDoughnut.classList.toggle('active', tipo === 'doughnut');
+  if (btnBar) btnBar.classList.toggle('active', tipo === 'bar');
+
+  // Se estiver recolhido, expande automaticamente
+  const secao = document.getElementById('secaoGastosCategoria');
+  if (secao && secao.classList.contains('collapsed')) {
+    toggleSecaoGraficoCategorias();
+  }
+
+  if (ESTADO.dadosAtuais && ESTADO.dadosAtuais.projecao && ESTADO.dadosAtuais.projecao.detalhes_parcelas) {
+    renderizarGraficoCategorias(ESTADO.dadosAtuais.projecao.detalhes_parcelas);
+  }
+}
+
+function filtrarTabelaPorCategoria(catNome) {
+  if (ESTADO.categoriaFiltroTabela === catNome) {
+    ESTADO.categoriaFiltroTabela = null; // Desativa filtro
+    showToast('Filtro de categoria removido da tabela.', 'info');
+  } else {
+    ESTADO.categoriaFiltroTabela = catNome;
+    if (catNome) {
+      showToast(`Exibindo compras da categoria: ${catNome}`, 'info');
+    }
+  }
+
+  // Re-renderiza o ranking para marcar visualmente o item ativo
+  if (ESTADO.dadosAtuais && ESTADO.dadosAtuais.projecao && ESTADO.dadosAtuais.projecao.detalhes_parcelas) {
+    const { lista, totalGeral } = calcularTotaisPorCategoria(ESTADO.dadosAtuais.projecao.detalhes_parcelas);
+    renderizarListaBarrasCategorias(lista, totalGeral);
+    renderizarTabelaDetalhes(ESTADO.dadosAtuais.projecao.detalhes_parcelas);
+  }
+
+  // Abre a seção de detalhes se estiver oculta e rola suavemente até ela
+  const content = document.getElementById('detailsContent');
+  const icon = document.getElementById('detailsToggleIcon');
+  if (content && content.style.display === 'none') {
+    content.style.display = 'block';
+    if (icon) icon.textContent = '▲';
+  }
+
+  const table = document.getElementById('detailsTableBody');
+  if (table && catNome) {
+    table.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
 }
 
 // ============================================================================
@@ -1005,9 +1844,15 @@ function limparAnalise() {
   ESTADO.dadosAtuais = null;
   ESTADO.excelId = null;
   ESTADO.faturaSelecionadaId = null;
+  ESTADO.categoriaFiltroTabela = null;
+
+  destruirGraficoCategorias();
 
   const results = document.getElementById('resultsArea');
   if (results) results.style.display = 'none';
+
+  const secaoCat = document.getElementById('secaoGastosCategoria');
+  if (secaoCat) secaoCat.style.display = 'none';
 
   const fileInput = document.getElementById('pdfInput');
   if (fileInput) fileInput.value = '';
@@ -1105,15 +1950,15 @@ function atualizarStatusApiKeyBadge() {
   if (prov === 'local') {
     if (icon) icon.textContent = '💻';
     if (text) text.textContent = 'Modo Local';
-    if (btn) btn.className = 'btn btn-secondary btn-sm';
+    if (btn) btn.className = 'btn-ai-key-action key-local';
   } else if (key && key.trim()) {
     if (icon) icon.textContent = '✅';
-    if (text) text.textContent = `${prov.toUpperCase()} Configurado`;
-    if (btn) btn.className = 'btn btn-secondary btn-sm';
+    if (text) text.textContent = `${prov.toUpperCase()} Ativo`;
+    if (btn) btn.className = 'btn-ai-key-action key-ok';
   } else {
     if (icon) icon.textContent = '🔑';
     if (text) text.textContent = `Configurar ${prov.toUpperCase()}`;
-    if (btn) btn.className = 'btn btn-secondary btn-sm';
+    if (btn) btn.className = 'btn-ai-key-action key-needed';
   }
 }
 
@@ -1247,8 +2092,8 @@ async function confirmarEdicaoCategoria() {
         });
       }
 
-      // Re-renderiza as tabelas para refletir a nova categoria na tela
-      renderizarMatrizProjecao(proj);
+      // Re-renderiza matriz, tabelas e gráficos para refletir a nova categoria na tela
+      renderizarResultados(ESTADO.dadosAtuais);
     }
 
     if (ESTADO.dadosAtuais.fatura) {
